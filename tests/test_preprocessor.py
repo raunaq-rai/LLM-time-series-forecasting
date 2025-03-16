@@ -1,65 +1,67 @@
-import unittest
+import pytest
 import numpy as np
-from src.preprocessor import LLMTIMEPreprocessor
+from preprocessor import LotkaVolterraPreprocessor
+from load_qwen import load_qwen_model
 
+@pytest.fixture(scope="module")
+def preprocessor():
+    """Fixture to initialize the preprocessor."""
+    return LotkaVolterraPreprocessor()
 
-class TestLLMTIMEPreprocessor(unittest.TestCase):
-    """
-    Unit tests for the LLMTIMEPreprocessor class.
-    """
+@pytest.fixture(scope="module")
+def tokenizer():
+    """Fixture to load the tokenizer from load_qwen.py"""
+    tokenizer, _, _ = load_qwen_model()
+    return tokenizer
 
-    @classmethod
-    def setUpClass(cls):
-        """
-        Set up the preprocessor once for all tests.
-        """
-        cls.preprocessor = LLMTIMEPreprocessor(file_path="lotka_volterra_data.h5")
+def test_load_dataset(preprocessor):
+    """Test if the dataset loads correctly."""
+    assert preprocessor.trajectories is not None, "Failed to load trajectories!"
+    assert preprocessor.time_points is not None, "Failed to load time points!"
+    assert preprocessor.trajectories.shape == (1000, 100, 2), "Unexpected shape for trajectories!"
+    assert preprocessor.time_points.shape == (100,), "Unexpected shape for time points!"
 
-    def test_preprocess_scale_format(self):
-        """
-        Test if scaling and formatting work as expected.
-        Ensures:
-        - The formatted output is a list.
-        - The format correctly separates time steps (;) and variables (,).
-        """
-        sample_data = np.array([
-            [[0.5, 1.5], [0.6, 1.4], [0.7, 1.3]]
-        ])  # Shape (1, 3, 2)
+def test_format_input(preprocessor):
+    """Test formatting of a single sample."""
+    sample_index = 0
+    num_steps = 20
+    formatted_text = preprocessor.format_input(sample_index, num_steps)
+    
+    assert isinstance(formatted_text, str), "Formatted input is not a string!"
+    assert "Time-Series Data" in formatted_text, "Formatted text does not contain expected structure!"
+    
+    num_values = formatted_text.count(";") + 1  # Count time steps
+    assert num_values == num_steps, f"Expected {num_steps} values, got {num_values}!"
 
-        formatted = self.preprocessor.scale_and_format(sample_data)
-        
-        self.assertIsInstance(formatted, list)
-        self.assertEqual(len(formatted), 1)  # One sequence
-        self.assertIn(";", formatted[0])  # Timestamps separated
-        self.assertIn(",", formatted[0])  # Variables separated
+def test_tokenization(preprocessor, tokenizer):
+    """Test tokenization process using the tokenizer from load_qwen.py."""
+    sample_index = 0
+    num_steps = 20
 
-    def test_preprocess_tokenization(self):
-        """
-        Test if tokenization works correctly.
-        Ensures:
-        - The output is a list.
-        - It contains tokenized integer values.
-        """
-        sample_sequence = ["0.5,1.5;0.6,1.4;0.7,1.3"]
-        tokenized = self.preprocessor.tokenize(sample_sequence)
+    # Get preprocessed text
+    input_text = preprocessor.format_input(sample_index, num_steps)
 
-        self.assertIsInstance(tokenized, list)
-        self.assertGreater(len(tokenized[0]), 0)  # Ensure non-empty tokens
-        self.assertIsInstance(tokenized[0], list)  # List of token sequences
+    # Tokenize using the correct tokenizer
+    tokenized_output = tokenizer(input_text, return_tensors="pt")["input_ids"]
 
-    def test_preprocess_pipeline(self):
-        """
-        Test if the full preprocessing pipeline works correctly.
-        - Checks formatted output.
-        - Ensures tokenized output is not empty.
-        """
-        formatted, tokenized = self.preprocessor.preprocess(sample_size=1)
+    assert tokenized_output is not None, "Tokenization failed!"
+    assert tokenized_output.shape[1] > 0, "Tokenized sequence is empty!"
 
-        self.assertIsInstance(formatted, list)
-        self.assertIsInstance(tokenized, list)
-        self.assertGreater(len(tokenized[0]), 0)
+def test_detokenization(preprocessor, tokenizer):
+    """Test if tokenized input can be correctly decoded back."""
+    sample_index = 0
+    num_steps = 20
 
+    # Get preprocessed text
+    input_text = preprocessor.format_input(sample_index, num_steps)
+
+    # Tokenize and detokenize using the correct tokenizer
+    tokenized_output = tokenizer(input_text, return_tensors="pt")["input_ids"]
+    decoded_text = tokenizer.decode(tokenized_output[0], skip_special_tokens=True)
+
+    # Check if the decoded text is similar to the original
+    assert isinstance(decoded_text, str), "Decoded output is not a string!"
+    assert "Time-Series Data" in decoded_text, "Decoded text does not match expected structure!"
 
 if __name__ == "__main__":
-    unittest.main()
-
+    pytest.main()
