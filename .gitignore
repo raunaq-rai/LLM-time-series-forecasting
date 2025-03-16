@@ -1,0 +1,34 @@
+# Ignore Python compiled files and caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# Ignore virtual environments
+venv/
+.env/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Ignore test cache and coverage reports
+pytest_cache/
+*.cover
+.coverage
+nosetests.xml
+coverage.xml
+htmlcov/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore build and distribution files
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Ignore Git-related files
+.git/
+

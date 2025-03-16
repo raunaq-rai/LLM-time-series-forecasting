@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "m2"
+version = "0.1.0"
+description = "M2 coursework"
+authors = [{name = "Raunaq Rai", email = "rsr45@cam.ac.uk"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "pytest"
+]
+
+[tool.setuptools]
+packages = ["src"]
+
