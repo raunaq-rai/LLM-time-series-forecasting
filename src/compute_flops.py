@@ -41,9 +41,9 @@ class FLOPSCalculator:
     def mlp_flops(self):
         """Compute FLOPS for MLP per layer."""
         mlp_up_proj_flops = self.matrix_mult_flops(self.N, self.D, self.MLP_D)
-        silu_flops = self.MLP_D * (1 + 1 + 10) * self.N  # SiLU activation
+        relu_flops = self.MLP_D * self.N  # Only 1 FLOP per neuron
         mlp_down_proj_flops = self.matrix_mult_flops(self.N, self.MLP_D, self.D)
-        return mlp_up_proj_flops + silu_flops + mlp_down_proj_flops
+        return mlp_up_proj_flops + relu_flops + mlp_down_proj_flops
 
     def rms_norm_flops(self):
         """Compute FLOPS for RMSNorm per layer."""
