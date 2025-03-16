@@ -5,157 +5,122 @@ from transformers import AutoTokenizer
 class LLMTIMEPreprocessor:
     """
     Preprocesses time-series data for input into the Qwen2.5-Instruct model.
-    
-    The preprocessing pipeline includes:
-    1. **Loading** numerical time-series data from `lotka_volterra_data.h5`.
-    2. **Computing a scaling factor** to normalize values into a suitable range (0-10).
-    3. **Formatting** the data as structured text, where:
-        - Different variables at the same timestep are separated by commas `,`
-        - Different timesteps are separated by semicolons `;`
-    4. **Tokenizing** the formatted text using the Qwen2.5 tokenizer.
-    
+
+    Enhancements:
+    - **Padding Support**: Ensures uniform sequence lengths.
+    - **Copying Issue Prevention**: Masks future timesteps to avoid trivial solutions.
+    - **Storage of Preprocessed Data**: Saves formatted & tokenized sequences.
+
     Attributes:
-        decimal_places (int): The number of decimal places to round the scaled values.
-        tokenizer (AutoTokenizer): Tokenizer from the Qwen2.5 model.
-        scale_factor (float): Computed scaling factor to normalize the data.
+        decimal_places (int): Number of decimal places to round values.
+        tokenizer (AutoTokenizer): Qwen2.5 tokenizer.
+        scale_factor (float): Computed scale factor for normalization.
+        max_length (int): Fixed sequence length for padding (default: 100).
     """
 
-    def __init__(self, file_path="lotka_volterra_data.h5", decimal_places=2, model_name="Qwen/Qwen2.5-0.5B-Instruct"):
+    def __init__(
+        self, 
+        file_path="lotka_volterra_data.h5", 
+        decimal_places=2, 
+        model_name="Qwen/Qwen2.5-0.5B-Instruct", 
+        max_length=100, 
+        mask_future=5
+    ):
         """
-        Initializes the preprocessor with the tokenizer and computes the scaling factor.
+        Initializes the preprocessor, loads tokenizer, and computes scale factor.
 
         Args:
-            file_path (str, optional): Path to the dataset file. Default is "lotka_volterra_data.h5".
-            decimal_places (int, optional): Number of decimal places to round values to. Default is 2.
-            model_name (str, optional): Name of the Qwen2.5 tokenizer model. Default is "Qwen/Qwen2.5-0.5B-Instruct".
-
-        Example:
-            >>> preprocessor = LLMTIMEPreprocessor()
-            >>> print(preprocessor.scale_factor)  # Example scaling factor
+            file_path (str): Path to the dataset file.
+            decimal_places (int): Rounding precision for scaled values.
+            model_name (str): Qwen2.5 tokenizer name.
+            max_length (int): Fixed sequence length for padding.
+            mask_future (int): Number of future timesteps to mask.
         """
         self.decimal_places = decimal_places
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.max_length = max_length
+        self.mask_future = mask_future  # Number of timesteps to mask
 
-        # Load the dataset to determine an appropriate scale factor
+        # Load dataset and determine scaling factor
         data, _ = self.load_data(file_path)
         self.scale_factor = self.compute_scale_factor(data)
 
     def load_data(self, file_path="lotka_volterra_data.h5"):
-        """
-        Loads the predator-prey time-series dataset from an HDF5 file.
-
-        Args:
-            file_path (str): Path to the dataset file.
-
-        Returns:
-            tuple:
-                - np.ndarray: The dataset containing numerical time-series data (shape: (1000, 100, 2)).
-                - np.ndarray: The corresponding time points (shape: (100,)).
-
-        Example:
-            >>> data, time_points = preprocessor.load_data("lotka_volterra_data.h5")
-            >>> print(data.shape)  # (1000, 100, 2)
-            >>> print(time_points.shape)  # (100,)
-        """
+        """Loads the predator-prey time-series dataset from an HDF5 file."""
         with h5py.File(file_path, "r") as f:
-            trajectories = f["trajectories"][:]  # Shape (1000, 100, 2)
-            time_points = f["time"][:]  # Shape (100,)
-
+            trajectories = f["trajectories"][:]  # Shape: (1000, 100, 2)
+            time_points = f["time"][:]  # Shape: (100,)
         return trajectories, time_points
 
     def compute_scale_factor(self, data, target_range=(0, 10)):
-        """
-        Computes a scaling factor to normalize the data within a defined range.
-
-        Args:
-            data (np.ndarray): The dataset from which to compute scaling.
-            target_range (tuple, optional): The desired range of values. Default is (0, 10).
-
-        Returns:
-            float: Scaling factor to ensure values are within the specified range.
-
-        Example:
-            >>> scale_factor = preprocessor.compute_scale_factor(data)
-            >>> print(scale_factor)  # Example output: 5.2
-        """
+        """Computes a scaling factor to normalize data within a defined range."""
         min_val, max_val = np.min(data), np.max(data)
-        scale_factor = target_range[1] / max(abs(min_val), abs(max_val))  # Scale to target range
-        return scale_factor
+        return target_range[1] / max(abs(min_val), abs(max_val))
 
     def scale_and_format(self, data):
         """
-        Scales and formats the time-series data into structured text format.
+        Scales, rounds, and formats time-series data into structured text.
 
-        Steps:
-        - Each value is scaled using the computed `scale_factor`.
-        - The values are rounded to `decimal_places`.
-        - The structured format follows:
-            - Variables at the same timestep are separated by commas `,`.
-            - Different timesteps are separated by semicolons `;`.
-
-        Args:
-            data (np.ndarray): Time-series data to be scaled and formatted.
-
-        Returns:
-            list[str]: List of formatted sequences as strings.
-
-        Example:
-            >>> sample_data = np.array([[[0.5, 1.5], [0.6, 1.4], [0.7, 1.3]]])
-            >>> formatted = preprocessor.scale_and_format(sample_data)
-            >>> print(formatted)
-            ["2.5,7.5;3.0,7.0;3.5,6.5"]
+        Changes:
+        - Future timesteps are masked to prevent direct copying.
+        - Supports padding to ensure uniform sequence lengths.
         """
+        # Scale & round
         scaled_data = np.round(data * self.scale_factor, self.decimal_places)
-        formatted_sequences = [
-            ";".join([",".join(map(str, timestep)) for timestep in sequence])
-            for sequence in scaled_data
-        ]
+
+        # Apply masking to prevent trivial copying
+        masked_data = scaled_data.copy()
+        masked_data[:, -self.mask_future:, :] = np.nan  # Mask last `mask_future` timesteps
+
+        # Convert to LLMTIME format
+        formatted_sequences = []
+        for sequence in masked_data:
+            formatted_seq = ";".join(
+                [",".join(map(lambda x: "0.0" if np.isnan(x) else str(x), timestep)) for timestep in sequence]
+            )
+            formatted_sequences.append(formatted_seq)
+
         return formatted_sequences
 
+
+    def pad_sequences(self, sequences):
+        """
+        Pads tokenized sequences to `max_length` using the tokenizer's pad token.
+        """
+        padded_sequences = [
+            seq + [self.tokenizer.pad_token_id] * (self.max_length - len(seq))
+            if len(seq) < self.max_length else seq[:self.max_length]
+            for seq in sequences
+        ]
+        return padded_sequences
+
     def tokenize(self, sequences):
-        """
-        Tokenizes the formatted time-series sequences using the Qwen2.5 tokenizer.
-
-        Args:
-            sequences (list[str]): List of formatted sequences.
-
-        Returns:
-            list[list[int]]: Tokenized sequences represented as lists of integer token IDs.
-
-        Example:
-            >>> formatted_sequence = ["2.5,7.5;3.0,7.0;3.5,6.5"]
-            >>> tokenized = preprocessor.tokenize(formatted_sequence)
-            >>> print(tokenized)
-            [[16, 23, 11, 24, 17, 26, 18, 21, 11, 22, 24, 26, 20, 19, 11, 21, 22]]
-        """
-        tokenized_sequences = [self.tokenizer(seq, return_tensors="pt")["input_ids"].tolist()[0] for seq in sequences]
+        """Tokenizes and pads formatted sequences using Qwen2.5 tokenizer."""
+        tokenized_sequences = [
+            self.tokenizer(seq, return_tensors="pt", padding="max_length", max_length=self.max_length)["input_ids"].tolist()[0] 
+            for seq in sequences
+        ]
         return tokenized_sequences
 
     def preprocess(self, file_path="lotka_volterra_data.h5", sample_size=2):
         """
-        Full preprocessing pipeline that:
-        1. Loads time-series data from the dataset.
-        2. Scales and formats a subset of the data.
-        3. Tokenizes the formatted sequences.
-
-        Args:
-            file_path (str, optional): Path to the dataset file. Default is "lotka_volterra_data.h5".
-            sample_size (int, optional): Number of sequences to preprocess. Default is 2.
+        Full preprocessing pipeline:
+        - Loads time-series data.
+        - Scales, formats, and tokenizes.
+        - Applies padding.
 
         Returns:
-            tuple:
-                - list[str]: Formatted sequences.
-                - list[list[int]]: Tokenized sequences.
-
-        Example:
-            >>> formatted, tokenized = preprocessor.preprocess(sample_size=1)
-            >>> print("Formatted:", formatted[0])
-            >>> print("Tokenized:", tokenized[0])
+            tuple: (formatted sequences, tokenized sequences)
         """
         data, _ = self.load_data(file_path)
         formatted_sequences = self.scale_and_format(data[:sample_size])
         tokenized_sequences = self.tokenize(formatted_sequences)
+        tokenized_sequences = self.pad_sequences(tokenized_sequences)
 
+        # Save for later evaluation
+        np.save("preprocessed_data.npy", tokenized_sequences)
+
+        # Print results
         for i in range(sample_size):
             print(f"\n🔹 Example {i+1}:")
             print(f"Formatted: {formatted_sequences[i]}")

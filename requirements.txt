@@ -1,0 +1,12 @@
+# Core dependencies
+torch==2.2.2
+numpy==1.26.0
+transformers==4.38.0
+scikit-learn==1.4.0
+h5py==3.10.0
+
+# Testing dependencies
+pytest==8.3.3
+mock==5.0.0
+
+
