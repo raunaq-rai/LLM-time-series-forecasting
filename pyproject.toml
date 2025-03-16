@@ -1,19 +1,36 @@
+[tool.poetry]
+name = "m2-coursework"
+version = "0.1.0"
+description = "LLMTIME-based preprocessing and evaluation pipeline for Qwen2.5 model."
+authors = ["Raunaq Rai <rsr45@cam.ac.uk>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+torch = "^2.1.0"
+numpy = "^1.26.0"
+transformers = "^4.38.0"
+scikit-learn = "^1.4.0"
+h5py = "^3.10.0"
+pytest = "^8.3.3"
+mock = "^5.0.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.3.3"
+black = "^24.0.0"  # Code formatter
+flake8 = "^7.0.0"  # Linter
+mypy = "^1.10.0"  # Type checker
+pre-commit = "^3.6.0"  # Pre-commit hooks
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "--strict-markers -ra --disable-warnings"
+testpaths = ["tests"]
+
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "m2"
-version = "0.1.0"
-description = "M2 coursework"
-authors = [{name = "Raunaq Rai", email = "rsr45@cam.ac.uk"}]
-readme = "README.md"
-requires-python = ">=3.8"
-dependencies = [
-    "numpy",
-    "pytest"
-]
-
-[tool.setuptools]
-packages = ["src"]
 
