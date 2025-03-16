@@ -2,15 +2,15 @@ import numpy as np
 
 class FLOPSCalculator:
     def __init__(self,
-                 embedding_dim=896,
-                 context_length=512,  
-                 q_heads=14,
-                 kv_heads=2,
-                 mlp_hidden_dim=4864,
-                 layers=24,
-                 batch_size=4,
-                 training_steps=10000,
-                 lora_rank=8):
+                 embedding_dim=896,  # ✅ Qwen2.5-0.5B uses 896
+                 context_length=512,  # ✅ Computing FLOPS for N=512
+                 q_heads=14,  # ✅ Adjusted to Qwen2.5 spec
+                 kv_heads=2,  # ✅ Qwen2.5 has fewer KV heads
+                 mlp_hidden_dim=4864,  # ✅ MLP hidden size
+                 layers=24,  # ✅ 24 layers in Qwen2.5
+                 batch_size=4,  # ✅ Small batch for inference FLOPS
+                 training_steps=5000,  # ✅ Estimated for training FLOPS
+                 lora_rank=8):  # ✅ LoRA fine-tuning (set to 0 if not used)
         """
         Initialize the FLOPS calculator with transformer model hyperparameters.
         """
