@@ -1,59 +1,119 @@
 import os
 import h5py
 import numpy as np
-from transformers import AutoTokenizer
+from load_qwen import load_qwen_model 
 
-class LotkaVolterraPreprocessor:
+
+class LLMTIMEPreprocessor:
     """
-    Implements LLMTIME-based preprocessing for time-series data.
+    Implements the LLMTIME preprocessing scheme for multivariate time-series data.
+    
+    This preprocessor:
+    - Scales numeric values to a controlled range (e.g., 0-10) for stability.
+    - Rounds values to a fixed decimal precision for uniformity.
+    - Encodes time-series sequences into a structured format suitable for tokenization.
+    - Uses Qwen2.5's tokenizer to convert formatted text into tokenized input for LLMs.
     """
 
     FILE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "lotka_volterra_data.h5"))
 
-    def __init__(self, file_path=None, model_name="Qwen/Qwen2.5-0.5B-Instruct"):
+    def __init__(self, file_path=None, scale_factor=None, decimal_places=3):
         """
-        Initializes the preprocessor and loads the dataset.
+        Initializes the LLMTIME preprocessor and loads the dataset.
 
         Args:
             file_path (str, optional): Path to the HDF5 dataset. Defaults to FILE_PATH.
-            model_name (str, optional): Name of the tokenizer model.
+            scale_factor (float, optional): Scaling factor (α) for normalization. If None, it is auto-determined.
+            decimal_places (int): Number of decimal places to round values to for consistency.
         """
         self.file_path = file_path or self.FILE_PATH
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.decimal_places = decimal_places
         self.trajectories, self.time_points = self.load_dataset()
 
+        # Load tokenizer from load_qwen.py
+        self.tokenizer, _, _ = load_qwen_model()
+
+        # Automatically determine scaling factor if not provided
+        self.scale_factor = scale_factor or self.auto_scale_factor()
+        print(f" Using scale factor: {self.scale_factor:.3f}")
+
     def load_dataset(self):
-        """Loads the Lotka-Volterra dataset from an HDF5 file."""
+        """
+        Loads the Lotka-Volterra dataset from an HDF5 file.
+
+        Returns:
+            tuple:
+                - trajectories (numpy.ndarray): Time-series population data of shape (1000, 100, 2).
+                - time_points (numpy.ndarray): Time data of shape (100,).
+        """
         if not os.path.exists(self.file_path):
-            raise FileNotFoundError(f"🚨 Data file not found: {self.file_path}")
+            raise FileNotFoundError(f" Data file not found: {self.file_path}")
 
         with h5py.File(self.file_path, "r") as f:
             trajectories = f["trajectories"][:]  # Shape: (1000, 100, 2)
             time_points = f["time"][:]  # Shape: (100,)
 
-        print(f"✅ Dataset loaded: {trajectories.shape[0]} samples, {trajectories.shape[1]} time steps")
+        print(f" Dataset loaded: {trajectories.shape[0]} samples, {trajectories.shape[1]} time steps")
         return trajectories, time_points
 
-    def format_input(self, sample_index, num_steps=20):
+    def auto_scale_factor(self):
         """
-        Formats a time-series sample into LLMTIME structured text.
+        Determines an appropriate scale factor based on dataset distribution.
+
+        This method ensures that most data values fall within a reasonable range (e.g., 0-10)
+        to improve numerical stability when tokenizing sequences.
+
+        Returns:
+            float: Computed scale factor (α).
+        """
+        # Use the 95th percentile to avoid extreme outliers affecting scaling
+        max_prey = np.percentile(self.trajectories[:, :, 0], 95)
+        max_predator = np.percentile(self.trajectories[:, :, 1], 95)
+
+        # Scale factor ensures majority of values fall in [0,10] range
+        return max(max_prey, max_predator) / 10
+
+    def scale_and_format(self, values):
+        """
+        Applies numeric scaling and rounds values to a fixed precision.
+
+        Args:
+            values (numpy.ndarray): Array of numerical values.
+
+        Returns:
+            list[str]: List of scaled and formatted numeric values.
+        """
+        scaled = values / self.scale_factor  # Normalize
+        rounded = np.round(scaled, self.decimal_places)  # Round to fixed decimal places
+        return [f"{x:.{self.decimal_places}f}" for x in rounded]
+
+    def format_input(self, sample_index, num_steps=50):
+        """
+        Converts a time-series sequence into LLMTIME structured text.
+
+        The format follows:
+        - Values at each time step are separated by commas (`,`) → prey, predator
+        - Different time steps are separated by semicolons (`;`)
+
+        Example Output:
+            "0.95,1.04; 0.74,0.78; 0.68,0.56; ..."
 
         Args:
             sample_index (int): Index of the sample.
-            num_steps (int): Number of time steps.
+            num_steps (int): Number of time steps to include in the formatted input.
 
         Returns:
-            str: Formatted text sequence.
+            str: Preprocessed text representation of the time series.
         """
         prey = self.trajectories[sample_index, :num_steps, 0]
         predator = self.trajectories[sample_index, :num_steps, 1]
 
-        formatted_text = (
-            "### Time-Series Prediction Task\n"
-            f"Time-Series Data (Prey, Predator) for {num_steps} steps:\n"
-            + "; ".join([f"({prey[i]:.2f}, {predator[i]:.2f})" for i in range(num_steps)]) +
-            "\n\n### Predict the next 10 values:\n"
-        )
+        # Scale and format values
+        prey_scaled = self.scale_and_format(prey)
+        predator_scaled = self.scale_and_format(predator)
+
+        # Construct LLMTIME-compatible text format
+        formatted_text = "; ".join([f"{prey_scaled[i]},{predator_scaled[i]}" for i in range(num_steps)])
 
         return formatted_text
 
@@ -62,34 +122,42 @@ class LotkaVolterraPreprocessor:
         Tokenizes the formatted text using the Qwen2.5 tokenizer.
 
         Args:
-            text (str): Input text.
+            text (str): Preprocessed time-series text.
 
         Returns:
-            dict: Tokenized representation (input_ids).
+            torch.Tensor: Tokenized input tensor.
         """
-        return self.tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+        return self.tokenizer(text, return_tensors="pt", truncation=True, padding=True)["input_ids"]
 
-    def preprocess_sample(self, sample_index, num_steps=20):
+    def preprocess_sample(self, sample_index, num_steps=50):
         """
-        Preprocesses a single sample.
+        Prepares a time-series sample for model input.
+
+        Steps:
+        1. Formats the sequence using LLMTIME encoding.
+        2. Tokenizes the formatted text using Qwen2.5.
 
         Args:
             sample_index (int): Index of the sample.
-            num_steps (int): Number of time steps.
+            num_steps (int): Number of time steps to include.
 
         Returns:
-            tuple: (raw text, tokenized integers)
+            tuple:
+                - formatted_text (str): LLMTIME-encoded time series.
+                - tokenized_tensor (torch.Tensor): Tokenized version of the formatted text.
         """
         text = self.format_input(sample_index, num_steps)
-        tokenized = self.tokenize_input(text)["input_ids"]
+        tokenized = self.tokenize_input(text)
         return text, tokenized
 
-if __name__ == "__main__":
-    preprocessor = LotkaVolterraPreprocessor()
 
-    # Preprocess and tokenize a sample
+if __name__ == "__main__":
+    # Initialize Preprocessor
+    preprocessor = LLMTIMEPreprocessor()
+
+    # Process a Sample
     sample_index = 0
     raw_text, tokenized_seq = preprocessor.preprocess_sample(sample_index)
 
-    print("\n📝 Preprocessed Text:\n", raw_text)
+    print("\n📝 LLMTIME Preprocessed Text:\n", raw_text)
     print("\n🔢 Tokenized Sequence (as integers):\n", tokenized_seq.tolist())
