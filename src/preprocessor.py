@@ -152,12 +152,40 @@ class LLMTIMEPreprocessor:
 
 
 if __name__ == "__main__":
-    # Initialize Preprocessor
     preprocessor = LLMTIMEPreprocessor()
 
-    # Process a Sample
-    sample_index = 0
-    raw_text, tokenized_seq = preprocessor.preprocess_sample(sample_index)
+    # Select two sample indices
+    sample_index_1 = 0
+    sample_index_2 = 1
 
-    print("\n📝 LLMTIME Preprocessed Text:\n", raw_text)
-    print("\n🔢 Tokenized Sequence (as integers):\n", tokenized_seq.tolist())
+    # Load original data (before preprocessing)
+    original_1 = preprocessor.trajectories[sample_index_1, :5, :]  # First 5 time steps
+    original_2 = preprocessor.trajectories[sample_index_2, :5, :]
+
+    # Preprocess samples
+    raw_text_1, tokenized_seq_1 = preprocessor.preprocess_sample(sample_index_1, num_steps=5)
+    raw_text_2, tokenized_seq_2 = preprocessor.preprocess_sample(sample_index_2, num_steps=5)
+
+    print("\n================== Example 1 ==================")
+    print("📌 Original Sequence (First 5 time steps):")
+    for i, (prey, pred) in enumerate(original_1):
+        print(f"   Step {i+1}: ({prey:.3f}, {pred:.3f})")
+
+    print("\n📝 Preprocessed Sequence (LLMTIME Format):")
+    print("  ", raw_text_1)
+
+    print("\n🔢 Tokenized Sequence (Qwen Token IDs):")
+    print("  ", tokenized_seq_1[0].tolist())
+
+    print("\n================== Example 2 ==================")
+    print("📌 Original Sequence (First 5 time steps):")
+    for i, (prey, pred) in enumerate(original_2):
+        print(f"   Step {i+1}: ({prey:.3f}, {pred:.3f})")
+
+    print("\n📝 Preprocessed Sequence (LLMTIME Format):")
+    print("  ", raw_text_2)
+
+    print("\n🔢 Tokenized Sequence (Qwen Token IDs):")
+    print("  ", tokenized_seq_2[0].tolist())
+
+
