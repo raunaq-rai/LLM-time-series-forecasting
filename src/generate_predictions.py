@@ -1,49 +1,62 @@
 import torch
 import re
-from transformers import AutoTokenizer
-from preprocessor import LotkaVolterraPreprocessor
+import numpy as np
+from preprocessor import LLMTIMEPreprocessor
 from load_qwen import load_qwen_model
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
+
 class QwenForecaster:
     """
-    Evaluates Qwen2.5's ability to forecast time series.
+    Evaluates Qwen2.5's ability to forecast time series data using the first half of the dataset tokens to predict the second half.
     """
 
     def __init__(self):
         """
         Loads the Qwen2.5 model and tokenizer using load_qwen.py.
         """
-        print("📌 Loading model via load_qwen.py")
+        print("📌 Loading untrained model via load_qwen.py")
         self.tokenizer, self.model, self.device = load_qwen_model()
+        self.model.eval()  # Set model to evaluation mode
 
-    def generate_prediction(self, input_text):
+    def generate_prediction(self, tokenized_input, max_new_tokens):
         """
-        Uses the model to generate predictions.
-        
+        Uses the model to generate predictions based on tokenized input.
+
         Args:
-            input_text (str): The formatted input text sequence.
+            tokenized_input (torch.Tensor): Tokenized input sequence.
+            max_new_tokens (int): Number of new tokens to generate.
 
         Returns:
-            str: Generated output sequence from the model.
+            list[int]: Generated token sequence from the model.
         """
-        input_ids = self.tokenizer(input_text, return_tensors="pt", truncation=True, padding=True)["input_ids"]
-        input_ids = input_ids.to(self.device)
+        tokenized_input = tokenized_input.to(self.device)
 
         with torch.no_grad():
-            output = self.model.generate(
-                input_ids,
-                max_new_tokens=40,  # Generate 40 tokens for prediction
-                do_sample=True,
-                top_k=30,
-                temperature=1.6,
-                repetition_penalty=1.2,
+            output_tokens = self.model.generate(
+                tokenized_input, 
+                max_new_tokens=max_new_tokens
             )
 
-        return self.tokenizer.decode(output[0], skip_special_tokens=True)
+        # Extract only the newly generated tokens
+        new_tokens = output_tokens[:, tokenized_input.shape[1]:]
 
-    @staticmethod
-    def extract_numbers(text):
+        # Ensure exactly `max_new_tokens` are returned
+        return new_tokens[0][:max_new_tokens]  # Trim extra tokens if necessary
+
+    def decode_prediction(self, token_sequence):
+        """
+        Decodes a sequence of tokens into a numerical string.
+
+        Args:
+            token_sequence (list[int]): Token IDs.
+
+        Returns:
+            str: Decoded sequence.
+        """
+        return self.tokenizer.decode(token_sequence, skip_special_tokens=True)
+
+    def extract_numbers(self, text):
         """
         Extracts numerical values from the generated model output.
 
@@ -53,7 +66,8 @@ class QwenForecaster:
         Returns:
             list[float]: List of extracted floating-point numbers.
         """
-        return [float(num) for num in re.findall(r"[-+]?\d*\.\d+|\d+", text)]
+        extracted_numbers = [float(num) for num in re.findall(r"[-+]?\d*\.\d+|\d+", text)]
+        return extracted_numbers
 
     def evaluate(self, true_values, predicted_values):
         """
@@ -66,35 +80,69 @@ class QwenForecaster:
         Returns:
             tuple: (mse, mae, r2) Mean Squared Error, Mean Absolute Error, R² Score.
         """
-        predicted_values = predicted_values[:len(true_values)]
-        
+        # Ensure predicted_values has exactly 50 elements
+        predicted_values = predicted_values[:50]  # Trim if too long
+        if len(predicted_values) < 50:
+            predicted_values += [float('nan')] * (50 - len(predicted_values))  # Pad if too short
+
         mse = mean_squared_error(true_values, predicted_values)
         mae = mean_absolute_error(true_values, predicted_values)
         r2 = r2_score(true_values, predicted_values)
-        
+
         return mse, mae, r2
 
+
 if __name__ == "__main__":
-    preprocessor = LotkaVolterraPreprocessor()
+    preprocessor = LLMTIMEPreprocessor()
     forecaster = QwenForecaster()
 
-    # Preprocess and tokenize a sample
+    # Select a sample to process
     sample_index = 0
-    raw_text, tokenized_seq = preprocessor.preprocess_sample(sample_index)
 
-    print("\n📝 Preprocessed Text:\n", raw_text)
-    print("\n🔢 Tokenized Sequence (as integers):\n", tokenized_seq.tolist())
+    # Use all 100 time steps as input
+    full_text = preprocessor.format_input(sample_index, num_steps=100)
+    tokenized_full = preprocessor.tokenize_input(full_text)
 
-    # Generate prediction
-    generated_text = forecaster.generate_prediction(raw_text)
-    print("\n🔍 Raw Model Output:\n", generated_text)
+    print("\n📝 Full Preprocessed Input (100 Steps):\n", full_text)
+    print("\n🔢 Full Tokenized Sequence (Variable Length):\n", tokenized_full.tolist())
 
-    # Extract numerical values
-    predicted_values = forecaster.extract_numbers(generated_text)
-    true_values = preprocessor.trajectories[sample_index, 20:30, :].flatten()
+    # Dynamically determine the halfway point
+    num_tokens = tokenized_full.shape[1]
+    half_point = num_tokens // 2
 
-    # Evaluate performance
+    # Split into first half (input) and second half (target)
+    first_half_tokens = tokenized_full[:, :half_point]
+    second_half_tokens = tokenized_full[:, half_point:]
+
+    print(f"\n🔢 Splitting at {half_point} tokens...")
+    print("\n🔢 First Half of Tokens (Used as Input):\n", first_half_tokens.tolist())
+    print("\n🔢 Second Half of Tokens (Ground Truth for Evaluation):\n", second_half_tokens.tolist())
+
+    # Generate new tokens using first half as input
+    generated_tokens = forecaster.generate_prediction(
+        first_half_tokens, 
+        max_new_tokens=second_half_tokens.shape[1]
+    )
+
+    print("\n🔢 Generated Tokenized Sequence:\n", generated_tokens.tolist())
+
+    # Decode the tokenized prediction into text
+    decoded_output = forecaster.decode_prediction(generated_tokens)
+    print("\n🔍 Model Output (Decoded Text):\n", decoded_output)
+
+    # Extract numerical predictions from decoded text
+    predicted_values = forecaster.extract_numbers(decoded_output)
+    print("\n🔮 Extracted Predicted Values:\n", predicted_values)
+
+    # Extract the true numerical values corresponding to the second half of the time series
+    # Ensure `true_values` is only 50 values (matching `predicted_values`)
+    true_values = preprocessor.trajectories[sample_index, 50:100, 0].tolist()
+
+    print("\n✅ True Last 50 Values (Ensured Correct Length):\n", true_values)
+
+    # Evaluate model performance
     mse, mae, r2 = forecaster.evaluate(true_values, predicted_values)
+
     print("\n📊 Evaluation Metrics:")
     print(f"   MSE: {mse:.4f}")
     print(f"   MAE: {mae:.4f}")
