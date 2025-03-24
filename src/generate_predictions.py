@@ -23,36 +23,41 @@ class TrajectoryDataset:
 
 
 class PredictionPipeline:
-    def __init__(self, dataset: TrajectoryDataset, test_fraction=0.75):
+    def __init__(self, dataset: TrajectoryDataset, input_fraction=0.7):
         self.model, self.tokenizer = load_qwen_model()
-        self.model.to(torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"))
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+        self.model.to(self.device)
         self.model.eval()
         self.dataset = dataset
-        self.test_fraction = test_fraction
+        self.input_fraction = input_fraction
 
-    def trunc_string(self, series, n=75):
+    def trunc_string(self, series, n):
+        """Convert first n timesteps to formatted LLMTIME string."""
         truncated = series[:n]
         return ";".join([f"{p:.2f},{q:.2f}" for p, q in truncated])
 
-    def _predict_on_series(self, series, input_timesteps, output_timesteps):
+    def _predict_on_series(self, series):
+        input_timesteps = int(self.input_fraction * 100)
+        output_timesteps = 100 - input_timesteps
+
         input_str = self.trunc_string(series, n=input_timesteps)
         tokens = self.tokenizer(input_str, return_tensors='pt')
-        tokens = {k: v.to(self.model.device) for k, v in tokens.items()}
+        tokens = {k: v.to(self.device) for k, v in tokens.items()}
 
+        # Generate predictions for remaining timesteps
         token_preds = self.model.generate(
             tokens["input_ids"],
             attention_mask=tokens["attention_mask"],
-            max_new_tokens=int(output_timesteps * 10)
+            max_new_tokens=int(output_timesteps * 10)  # 10 tokens per timestep
         )
 
-        semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]
+        semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]  # ASCII 26 is semicolon
         while len(semicolons) < 100:
             timesteps_needed = 100 - len(semicolons)
             token_preds = self.model.generate(
                 token_preds,
                 max_new_tokens=int(timesteps_needed * 10 + 10)
             )
-
             semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]
             if len(token_preds[0]) > 2000:
                 print("⚠️ Reached max token length")
@@ -67,30 +72,23 @@ class PredictionPipeline:
         decoded = self.tokenizer.decode(tokens_1d, skip_special_tokens=True)
         return decoded
 
-    def predict(self, num_tests=5, seed=290402):
-        input_timesteps = int(self.test_fraction * 100)
-        output_timesteps = 100 - input_timesteps
-
-        series = self.dataset.get_random_systems(num_tests, seed)
+    def predict(self, num_tests=5, seed=240901):
+        series_list = self.dataset.get_random_systems(num_tests, seed)
         predictions = np.empty(num_tests, dtype=object)
 
-        for idx, system in enumerate(series):
+        for idx, system in enumerate(series_list):
             print(f"\n🔹 Test {idx+1} of {num_tests}")
-            predictions[idx] = self._predict_on_series(system, input_timesteps, output_timesteps)
+            predictions[idx] = self._predict_on_series(system)
 
-        return predictions, series
+        return predictions, series_list
 
     def predict_by_index(self, index):
-        input_timesteps = int(self.test_fraction * 100)
-        output_timesteps = 100 - input_timesteps
-
         if index < 0 or index >= len(self.dataset.trajectories):
             raise IndexError(f"Index {index} is out of bounds")
 
         system = self.dataset.trajectories[index]
-        prediction = self._predict_on_series(system, input_timesteps, output_timesteps)
-
-        return [prediction], [system]  # mimic structure of predict() for easy plotting
+        prediction = self._predict_on_series(system)
+        return [prediction], [system]  # Return in list form for easy plotting
 
     def plot_predictions(self, predictions, original_series):
         for i in range(len(predictions)):
@@ -132,12 +130,11 @@ class PredictionPipeline:
             plt.show()
 
 
-
 if __name__ == "__main__":
     import sys
 
     dataset = TrajectoryDataset("lotka_volterra_data.h5")
-    pipeline = PredictionPipeline(dataset)
+    pipeline = PredictionPipeline(dataset, input_fraction=0.5)  # Use only first half for prediction
 
     if len(sys.argv) > 1:
         index = int(sys.argv[1])
