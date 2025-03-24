@@ -1,149 +1,149 @@
 import torch
-import re
 import numpy as np
-from preprocessor import LLMTIMEPreprocessor
+import h5py
+import matplotlib.pyplot as plt
+from transformers import AutoTokenizer
 from load_qwen import load_qwen_model
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from preprocessor import LLMTIMEPreprocessor
 
 
-class QwenForecaster:
-    """
-    Evaluates Qwen2.5's ability to forecast time series data using the first half of the dataset tokens to predict the second half.
-    """
+class TrajectoryDataset:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.trajectories = self.load_data()
 
-    def __init__(self):
-        """
-        Loads the Qwen2.5 model and tokenizer using load_qwen.py.
-        """
-        print("📌 Loading untrained model via load_qwen.py")
-        self.tokenizer, self.model, self.device = load_qwen_model()
-        self.model.eval()  # Set model to evaluation mode
+    def load_data(self):
+        with h5py.File(self.file_path, "r") as f:
+            return f["trajectories"][:]
 
-    def generate_prediction(self, tokenized_input, max_new_tokens):
-        """
-        Uses the model to generate predictions based on tokenized input.
+    def get_random_systems(self, num_samples=5, seed=42):
+        np.random.seed(seed)
+        indices = np.random.choice(len(self.trajectories), num_samples, replace=False)
+        return [self.trajectories[i] for i in indices]
 
-        Args:
-            tokenized_input (torch.Tensor): Tokenized input sequence.
-            max_new_tokens (int): Number of new tokens to generate.
 
-        Returns:
-            list[int]: Generated token sequence from the model.
-        """
-        tokenized_input = tokenized_input.to(self.device)
+class PredictionPipeline:
+    def __init__(self, dataset: TrajectoryDataset, test_fraction=0.75):
+        self.model, self.tokenizer = load_qwen_model()
+        self.model.to(torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"))
+        self.model.eval()
+        self.dataset = dataset
+        self.test_fraction = test_fraction
 
-        with torch.no_grad():
-            output_tokens = self.model.generate(
-                tokenized_input, 
-                max_new_tokens=max_new_tokens
+    def trunc_string(self, series, n=75):
+        truncated = series[:n]
+        return ";".join([f"{p:.2f},{q:.2f}" for p, q in truncated])
+
+    def _predict_on_series(self, series, input_timesteps, output_timesteps):
+        input_str = self.trunc_string(series, n=input_timesteps)
+        tokens = self.tokenizer(input_str, return_tensors='pt')
+        tokens = {k: v.to(self.model.device) for k, v in tokens.items()}
+
+        token_preds = self.model.generate(
+            tokens["input_ids"],
+            attention_mask=tokens["attention_mask"],
+            max_new_tokens=int(output_timesteps * 10)
+        )
+
+        semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]
+        while len(semicolons) < 100:
+            timesteps_needed = 100 - len(semicolons)
+            token_preds = self.model.generate(
+                token_preds,
+                max_new_tokens=int(timesteps_needed * 10 + 10)
             )
 
-        # Extract only the newly generated tokens
-        new_tokens = output_tokens[:, tokenized_input.shape[1]:]
+            semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]
+            if len(token_preds[0]) > 2000:
+                print("⚠️ Reached max token length")
+                break
 
-        # Ensure exactly `max_new_tokens` are returned
-        return new_tokens[0][:max_new_tokens]  # Trim extra tokens if necessary
+        if len(semicolons) >= 100:
+            end_idx = semicolons[99].item()
+            tokens_1d = token_preds[0][:end_idx]
+        else:
+            tokens_1d = token_preds[0]
 
-    def decode_prediction(self, token_sequence):
-        """
-        Decodes a sequence of tokens into a numerical string.
+        decoded = self.tokenizer.decode(tokens_1d, skip_special_tokens=True)
+        return decoded
 
-        Args:
-            token_sequence (list[int]): Token IDs.
+    def predict(self, num_tests=5, seed=290402):
+        input_timesteps = int(self.test_fraction * 100)
+        output_timesteps = 100 - input_timesteps
 
-        Returns:
-            str: Decoded sequence.
-        """
-        return self.tokenizer.decode(token_sequence, skip_special_tokens=True)
+        series = self.dataset.get_random_systems(num_tests, seed)
+        predictions = np.empty(num_tests, dtype=object)
 
-    def extract_numbers(self, text):
-        """
-        Extracts numerical values from the generated model output.
+        for idx, system in enumerate(series):
+            print(f"\n🔹 Test {idx+1} of {num_tests}")
+            predictions[idx] = self._predict_on_series(system, input_timesteps, output_timesteps)
 
-        Args:
-            text (str): Model output text.
+        return predictions, series
 
-        Returns:
-            list[float]: List of extracted floating-point numbers.
-        """
-        extracted_numbers = [float(num) for num in re.findall(r"[-+]?\d*\.\d+|\d+", text)]
-        return extracted_numbers
+    def predict_by_index(self, index):
+        input_timesteps = int(self.test_fraction * 100)
+        output_timesteps = 100 - input_timesteps
 
-    def evaluate(self, true_values, predicted_values):
-        """
-        Computes performance metrics comparing true vs. predicted values.
+        if index < 0 or index >= len(self.dataset.trajectories):
+            raise IndexError(f"Index {index} is out of bounds")
 
-        Args:
-            true_values (list[float]): Ground truth values.
-            predicted_values (list[float]): Model-predicted values.
+        system = self.dataset.trajectories[index]
+        prediction = self._predict_on_series(system, input_timesteps, output_timesteps)
 
-        Returns:
-            tuple: (mse, mae, r2) Mean Squared Error, Mean Absolute Error, R² Score.
-        """
-        # Ensure predicted_values has exactly 50 elements
-        predicted_values = predicted_values[:50]  # Trim if too long
-        if len(predicted_values) < 50:
-            predicted_values += [float('nan')] * (50 - len(predicted_values))  # Pad if too short
+        return [prediction], [system]  # mimic structure of predict() for easy plotting
 
-        mse = mean_squared_error(true_values, predicted_values)
-        mae = mean_absolute_error(true_values, predicted_values)
-        r2 = r2_score(true_values, predicted_values)
+    def plot_predictions(self, predictions, original_series):
+        for i in range(len(predictions)):
+            true_vals = original_series[i]
+            pred_vals = [list(map(float, pair.split(','))) for pair in predictions[i].split(';') if ',' in pair]
 
-        return mse, mae, r2
+            if not pred_vals:
+                print(f"⚠️ No valid predictions for Test {i+1}")
+                continue
+
+            true_prey = [x[0] for x in true_vals]
+            true_predator = [x[1] for x in true_vals]
+            pred_prey = [x[0] for x in pred_vals]
+            pred_predator = [x[1] for x in pred_vals]
+
+            min_len = min(len(true_prey), len(pred_prey))
+            true_prey, pred_prey = true_prey[:min_len], pred_prey[:min_len]
+            true_predator, pred_predator = true_predator[:min_len], pred_predator[:min_len]
+
+            plt.figure(figsize=(12, 5))
+
+            plt.subplot(1, 2, 1)
+            plt.plot(true_prey, label="True Prey", marker="o", color="blue")
+            plt.plot(pred_prey, label="Predicted Prey", linestyle="--", marker="x", color="cyan")
+            plt.title(f"Prey - Test {i+1}")
+            plt.xlabel("Time Step")
+            plt.ylabel("Population")
+            plt.legend()
+
+            plt.subplot(1, 2, 2)
+            plt.plot(true_predator, label="True Predator", marker="o", color="red")
+            plt.plot(pred_predator, label="Predicted Predator", linestyle="--", marker="x", color="orange")
+            plt.title(f"Predator - Test {i+1}")
+            plt.xlabel("Time Step")
+            plt.ylabel("Population")
+            plt.legend()
+
+            plt.tight_layout()
+            plt.show()
+
 
 
 if __name__ == "__main__":
-    preprocessor = LLMTIMEPreprocessor()
-    forecaster = QwenForecaster()
+    import sys
 
-    # Select a sample to process
-    sample_index = 0
+    dataset = TrajectoryDataset("lotka_volterra_data.h5")
+    pipeline = PredictionPipeline(dataset)
 
-    # Use all 100 time steps as input
-    full_text = preprocessor.format_input(sample_index, num_steps=100)
-    tokenized_full = preprocessor.tokenize_input(full_text)
+    if len(sys.argv) > 1:
+        index = int(sys.argv[1])
+        print(f"🔎 Running prediction for trajectory index {index}")
+        predictions, series = pipeline.predict_by_index(index)
+    else:
+        predictions, series = pipeline.predict(num_tests=5)
 
-    print("\n📝 Full Preprocessed Input (100 Steps):\n", full_text)
-    print("\n🔢 Full Tokenized Sequence (Variable Length):\n", tokenized_full.tolist())
-
-    # Dynamically determine the halfway point
-    num_tokens = tokenized_full.shape[1]
-    half_point = num_tokens // 2
-
-    # Split into first half (input) and second half (target)
-    first_half_tokens = tokenized_full[:, :half_point]
-    second_half_tokens = tokenized_full[:, half_point:]
-
-    print(f"\n🔢 Splitting at {half_point} tokens...")
-    print("\n🔢 First Half of Tokens (Used as Input):\n", first_half_tokens.tolist())
-    print("\n🔢 Second Half of Tokens (Ground Truth for Evaluation):\n", second_half_tokens.tolist())
-
-    # Generate new tokens using first half as input
-    generated_tokens = forecaster.generate_prediction(
-        first_half_tokens, 
-        max_new_tokens=second_half_tokens.shape[1]
-    )
-
-    print("\n🔢 Generated Tokenized Sequence:\n", generated_tokens.tolist())
-
-    # Decode the tokenized prediction into text
-    decoded_output = forecaster.decode_prediction(generated_tokens)
-    print("\n🔍 Model Output (Decoded Text):\n", decoded_output)
-
-    # Extract numerical predictions from decoded text
-    predicted_values = forecaster.extract_numbers(decoded_output)
-    print("\n🔮 Extracted Predicted Values:\n", predicted_values)
-
-    # Extract the true numerical values corresponding to the second half of the time series
-    # Ensure `true_values` is only 50 values (matching `predicted_values`)
-    true_values = preprocessor.trajectories[sample_index, 50:100, 0].tolist()
-
-    print("\n✅ True Last 50 Values (Ensured Correct Length):\n", true_values)
-
-    # Evaluate model performance
-    mse, mae, r2 = forecaster.evaluate(true_values, predicted_values)
-
-    print("\n📊 Evaluation Metrics:")
-    print(f"   MSE: {mse:.4f}")
-    print(f"   MAE: {mae:.4f}")
-    print(f"   R² Score: {r2:.4f}")
+    pipeline.plot_predictions(predictions, series)
