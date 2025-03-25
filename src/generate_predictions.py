@@ -23,7 +23,7 @@ class TrajectoryDataset:
 
 
 class PredictionPipeline:
-    def __init__(self, dataset: TrajectoryDataset, input_fraction=0.7):
+    def __init__(self, dataset: TrajectoryDataset, input_fraction=0.6):
         self.model, self.tokenizer = load_qwen_model()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
         self.model.to(self.device)
@@ -129,17 +129,23 @@ class PredictionPipeline:
             plt.tight_layout()
             plt.show()
 
-
 if __name__ == "__main__":
     import sys
+    import argparse
 
-    dataset = TrajectoryDataset("lotka_volterra_data.h5")
-    pipeline = PredictionPipeline(dataset, input_fraction=0.5)  # Use only first half for prediction
+    parser = argparse.ArgumentParser(description="Run prediction on Lotka-Volterra series")
+    parser.add_argument("--data_path", type=str, default="lotka_volterra_data.h5", help="Path to HDF5 dataset")
+    parser.add_argument("--input_fraction", type=float, default=0.6, help="Fraction of sequence used as input (e.g. 0.6)")
+    parser.add_argument("--index", type=int, default=None, help="Index of trajectory to predict (omit to do 5 random)")
 
-    if len(sys.argv) > 1:
-        index = int(sys.argv[1])
-        print(f"🔎 Running prediction for trajectory index {index}")
-        predictions, series = pipeline.predict_by_index(index)
+    args = parser.parse_args()
+
+    dataset = TrajectoryDataset(args.data_path)
+    pipeline = PredictionPipeline(dataset, input_fraction=args.input_fraction)
+
+    if args.index is not None:
+        print(f"🔎 Running prediction for trajectory index {args.index}")
+        predictions, series = pipeline.predict_by_index(args.index)
     else:
         predictions, series = pipeline.predict(num_tests=5)
 
