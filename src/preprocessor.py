@@ -21,7 +21,6 @@ class LLMTIMEPreprocessor:
     def format_input(self, prey, predator, num_steps=50):
         """Formats time-series data into LLMTIME structured text."""
         self.scale_factor = self.auto_scale_factor(prey, predator)
-        print(f"Using scale factor: {self.scale_factor:.3f}")
         return ";".join([f"{p},{q}" for p, q in zip(self.scale_and_format(prey[:num_steps]), self.scale_and_format(predator[:num_steps]))])
 
     def tokenize_input(self, text):
