@@ -128,6 +128,49 @@ def compute_flops(
     print(f"\n📏 Context length used for FLOP estimation: {token_count} tokens")
     print_flop_summary(training_total_flops, eval_total_flops, flop_budget)
 
+def estimate_max_training_steps(
+    data_path="../lotka_volterra_data.h5",
+    input_fraction=0.7,
+    lora_rank=4,
+    batch_size=4,
+    flop_budget=1e17,
+    train_series_count=700,
+    eval_series_count=300,
+    context_length=None,
+):
+    """
+    Estimate how many training steps fit within the FLOP budget.
+    """
+    dataset = TrajectoryDataset(data_path)
+    avg_token_count = compute_average_input_tokens(
+        dataset,
+        input_fraction=input_fraction,
+        num_series=train_series_count,
+        context_length=context_length
+    )
+
+    token_count = int(avg_token_count) if avg_token_count > 0 else context_length or 512
+
+    # Get FLOPs for one forward/backward pass (per batch)
+    _, step_flops = forwards_pass_flops(token_count, lora_ranks=lora_rank)
+    flops_per_training_step = step_flops * batch_size
+
+    # Get evaluation FLOPs (used once after training)
+    eval_flops = compute_total_eval_flops(token_count, eval_series_count, lora_rank)
+
+    # Remaining budget for training
+    remaining_budget = flop_budget - eval_flops
+    max_steps = int(remaining_budget // flops_per_training_step)
+
+    print(f"\n🔢 Avg token count: {token_count}")
+    print(f"⚙️  FLOPs per training step (batch): {flops_per_training_step:.2e}")
+    print(f"🧪 Evaluation FLOPs: {eval_flops:.2e}")
+    print(f"🎯 Remaining budget for training: {remaining_budget:.2e}")
+    print(f"🚀 Max training steps allowed: {max_steps}")
+
+    return max_steps
+
+
 
 # Optional CLI usage
 if __name__ == "__main__":
@@ -138,7 +181,7 @@ if __name__ == "__main__":
     parser.add_argument("--input_fraction", type=float, default=0.7)
     parser.add_argument("--lora_rank", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument("--training_steps", type=int, default=1000)
+    parser.add_argument("--training_steps", type=int, default=1)
     parser.add_argument("--flop_budget", type=float, default=1e17)
     parser.add_argument("--train_series_count", type=int, default=700)
     parser.add_argument("--eval_series_count", type=int, default=300)
