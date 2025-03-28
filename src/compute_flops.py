@@ -81,7 +81,7 @@ def print_flop_summary(training_total_flops, eval_total_flops, flop_budget):
 
 def compute_flops(
     data_path="../lotka_volterra_data.h5",
-    input_fraction=0.7,
+    input_fraction=1,
     lora_rank=0,
     batch_size=4,
     training_steps=10000,

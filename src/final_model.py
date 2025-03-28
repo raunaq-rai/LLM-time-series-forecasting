@@ -1,5 +1,3 @@
-# final_model.py
-
 import math
 import h5py
 import numpy as np
@@ -8,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 from accelerate import Accelerator
+import matplotlib.pyplot as plt
 
 from load_qwen import load_qwen_model
 from preprocessor import LLMTIMEPreprocessor
@@ -64,98 +63,13 @@ def evaluate(model, dataloader, accelerator):
     return avg_loss, perplexity
 
 
-def main():
-    # === Hyperparameters ===
-    context_length = 768
-    lora_rank = 8
-    learning_rate = 1e-4
-    batch_size = 4
-    max_steps = 10000
-    input_fraction = 0.7
-    val_fraction = 0.2
-    data_path = "data/lotka_volterra_data.h5"
-
-    # === Load model and tokenizer ===
-    model, tokenizer = load_qwen_model()
-
-    for layer in model.model.layers:
-        layer.self_attn.q_proj = LoRALinear(layer.self_attn.q_proj, r=lora_rank)
-        layer.self_attn.v_proj = LoRALinear(layer.self_attn.v_proj, r=lora_rank)
-
-    # === Load and preprocess data ===
-    with h5py.File(data_path, "r") as f:
-        trajectories = f["trajectories"][:]  # shape: [num_series, 100, 2]
-    prey = trajectories[:, :, 0]
-    predator = trajectories[:, :, 1]
-
-    num_series = prey.shape[0]
-    num_train = int(input_fraction * num_series)
-    num_val = int(val_fraction * num_series)
-
-    train_indices = np.arange(0, num_train)
-    val_indices = np.arange(num_train, num_train + num_val)
-
-    preprocessor = LLMTIMEPreprocessor()
-    def prepare_texts(indices):
-        texts = []
-        for i in indices:
-            text, _, _ = preprocessor.preprocess_sample(prey[i], predator[i], num_steps=100)
-            texts.append(text)
-        return texts
-
-    train_texts = prepare_texts(train_indices)
-    val_texts = prepare_texts(val_indices)
-
-    train_input_ids = process_sequences(train_texts, tokenizer, max_length=context_length, stride=context_length // 2)
-    val_input_ids = process_sequences(val_texts, tokenizer, max_length=context_length, stride=context_length)
-
-    train_loader = DataLoader(TensorDataset(train_input_ids), batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(TensorDataset(val_input_ids), batch_size=batch_size, shuffle=False)
-
-    # === Optimizer and Accelerator ===
-    optimizer = torch.optim.Adam((p for p in model.parameters() if p.requires_grad), lr=learning_rate)
-    accelerator = Accelerator()
-    model, optimizer, train_loader, val_loader = accelerator.prepare(model, optimizer, train_loader, val_loader)
-
-    # === Training loop ===
-    model.train()
-    steps = 0
-    progress_bar = tqdm(total=max_steps, desc="Training")
-    while steps < max_steps:
-        for (batch,) in train_loader:
-            optimizer.zero_grad()
-            outputs = model(batch, labels=batch)
-            loss = outputs.loss
-            accelerator.backward(loss)
-            optimizer.step()
-            steps += 1
-            progress_bar.update(1)
-            progress_bar.set_postfix(loss=loss.item())
-            if steps >= max_steps:
-                break
-
-    # === Evaluation ===
-    print("✅ Training complete. Evaluating...")
-    avg_loss, perplexity = evaluate(model, val_loader, accelerator)
-    print(f"📊 Validation loss: {avg_loss:.4f}")
-    print(f"📈 Perplexity: {perplexity:.2f}")
-
-    # Optional save
-    # torch.save(accelerator.unwrap_model(model).state_dict(), "trained_lora_model.pt")
-
-
-if __name__ == "__main__":
-    main()
-
-# Add at the bottom of final_model.py
-
 def train_lora_model(
     data_path="../lotka_volterra_data.h5",
     context_length=768,
     lora_rank=8,
     learning_rate=1e-4,
     batch_size=4,
-    max_steps=10000,
+    max_steps=6000,
     input_fraction=0.7,
     val_fraction=0.2,
     verbose=True
@@ -201,8 +115,12 @@ def train_lora_model(
 
     model.train()
     steps = 0
+    train_losses = []
+    step_counts = []
+
     if verbose:
         progress_bar = tqdm(total=max_steps, desc="Training")
+
     while steps < max_steps:
         for (batch,) in train_loader:
             optimizer.zero_grad()
@@ -211,6 +129,10 @@ def train_lora_model(
             accelerator.backward(loss)
             optimizer.step()
             steps += 1
+
+            train_losses.append(loss.item())
+            step_counts.append(steps)
+
             if verbose:
                 progress_bar.update(1)
                 progress_bar.set_postfix(loss=loss.item())
@@ -218,12 +140,23 @@ def train_lora_model(
                 break
 
     if verbose:
-        print("✅ Training complete. Evaluating...")
+        print("\n✅ Training complete. Evaluating...")
 
     avg_loss, perplexity = evaluate(model, val_loader, accelerator)
+
     if verbose:
         print(f"📊 Validation loss: {avg_loss:.4f}")
         print(f"📈 Perplexity: {perplexity:.2f}")
 
-    return model, tokenizer, val_loader, avg_loss, perplexity
+        # Plot training loss
+        plt.figure(figsize=(8, 4))
+        plt.plot(step_counts, train_losses, label="Training Loss")
+        plt.xlabel("Training Steps")
+        plt.ylabel("Loss")
+        plt.title("Training Loss Over Time")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
+    return model, tokenizer, val_loader, avg_loss, perplexity
