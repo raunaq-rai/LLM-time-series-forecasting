@@ -35,14 +35,20 @@ class LLMTIMEPreprocessor:
 
 
 if __name__ == "__main__":
-    # Example usage
-    prey = np.array([2.92, 2.27, 2.09, 2.20, 2.53, 3.08, 3.88, 4.93, 6.24, 7.75])
-    predator = np.array([3.20, 2.39, 1.73, 1.25, 0.92, 0.71, 0.57, 0.50, 0.47, 0.50])
-    num_steps = 10
+    # Shorter Example 1
+    prey1 = np.array([2.9, 3.2, 3.8, 4.5, 5.1])
+    predator1 = np.array([1.1, 0.9, 0.7, 0.6, 0.5])
+
+    # Shorter Example 2
+    prey2 = np.array([1.5, 1.8, 2.1, 2.4, 2.7])
+    predator2 = np.array([2.8, 2.5, 2.2, 1.9, 1.6])
 
     preprocessor = LLMTIMEPreprocessor()
-    print("\n🔄 Preprocessing Sample...")
-    raw_text, tokenized_seq, scale_factor = preprocessor.preprocess_sample(prey, predator, num_steps)
-    print("\n📝 Formatted Input Text:\n", raw_text)
-    print("\n🔢 Tokenized Sequence:\n", tokenized_seq.tolist())
-    print("\n🔢 Scale Factor:\n", scale_factor)
+    
+    for i, (prey, predator) in enumerate([(prey1, predator1), (prey2, predator2)], start=1):
+        print(f"\n🔄 Preprocessing Sample {i}...")
+        raw_text, tokenized_seq, scale_factor = preprocessor.preprocess_sample(prey, predator, num_steps=5)
+        print(f"\n📝 Formatted Input Text {i}:\n{raw_text}")
+        print(f"\n🔢 Tokenized Sequence {i}:\n{tokenized_seq.tolist()}")
+        print(f"\n⚖️  Scale Factor {i}: {scale_factor:.3f}")
+
