@@ -5,6 +5,8 @@ __pycache__/
 *.pyd
 *.pkl
 
+*.pt
+
 # Ignore LaTeX and build artifacts
 *.aux
 *.bbl

@@ -148,15 +148,32 @@ def train_lora_model(
         print(f"📊 Validation loss: {avg_loss:.4f}")
         print(f"📈 Perplexity: {perplexity:.2f}")
 
-        # Plot training loss
-        plt.figure(figsize=(8, 4))
-        plt.plot(step_counts, train_losses, label="Training Loss")
+        # === Plot 1: Full Training Loss ===
+        plt.figure(figsize=(10, 4))
+        plt.plot(step_counts, train_losses, label="Training Loss", color="blue")
+        plt.axhline(y=avg_loss, color="red", linestyle="--", label=f"Validation Loss = {avg_loss:.4f}")
         plt.xlabel("Training Steps")
         plt.ylabel("Loss")
-        plt.title("Training Loss Over Time")
+        plt.title("Training Loss (Full Range)")
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
         plt.show()
+
+        # === Plot 2: Zoomed-in View (Steps 3000–6000) ===
+        zoom_steps = [s for s in step_counts if s >= 3000]
+        zoom_losses = train_losses[-len(zoom_steps):]
+
+        plt.figure(figsize=(10, 4))
+        plt.plot(zoom_steps, zoom_losses, label="Training Loss (Zoomed)", color="purple")
+        plt.axhline(y=avg_loss, color="red", linestyle="--", label=f"Validation Loss = {avg_loss:.4f}")
+        plt.xlabel("Training Steps")
+        plt.ylabel("Loss")
+        plt.title("Training Loss (Steps 3000–6000)")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
 
     return model, tokenizer, val_loader, avg_loss, perplexity
