@@ -140,13 +140,13 @@ def train_lora_model(
                 break
 
     if verbose:
-        print("\n✅ Training complete. Evaluating...")
+        print("\n Training complete. Evaluating...")
 
     avg_loss, perplexity = evaluate(model, val_loader, accelerator)
 
     if verbose:
-        print(f"📊 Validation loss: {avg_loss:.4f}")
-        print(f"📈 Perplexity: {perplexity:.2f}")
+        print(f" Validation loss: {avg_loss:.4f}")
+        print(f" Perplexity: {perplexity:.2f}")
 
         # === Plot 1: Full Training Loss ===
         plt.figure(figsize=(10, 4))

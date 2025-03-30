@@ -73,10 +73,10 @@ def print_flop_summary(training_total_flops, eval_total_flops, flop_budget):
     Display training and evaluation FLOPs and compare to budget.
     """
     total_used = training_total_flops + eval_total_flops
-    print(f"\n 💡 Total Training FLOPs: {training_total_flops:.2e}")
-    print(f" 🧪 Total Evaluation FLOPs: {eval_total_flops:.2e}")
-    print(f" 🔢 Total Combined FLOPs: {total_used:.2e}")
-    print(f" 🎯 Percentage of FLOP budget used: {(total_used / flop_budget) * 100:.5f}%")
+    print(f"\n  Total Training FLOPs: {training_total_flops:.2e}")
+    print(f"  Total Evaluation FLOPs: {eval_total_flops:.2e}")
+    print(f"  Total Combined FLOPs: {total_used:.2e}")
+    print(f"  Percentage of FLOP budget used: {(total_used / flop_budget) * 100:.5f}%")
 
 
 def compute_flops(
@@ -125,7 +125,7 @@ def compute_flops(
         token_count, eval_series_count, lora_rank
     )
 
-    print(f"\n📏 Context length used for FLOP estimation: {token_count} tokens")
+    print(f"\n Context length used for FLOP estimation: {token_count} tokens")
     print_flop_summary(training_total_flops, eval_total_flops, flop_budget)
 
 def estimate_max_training_steps(
@@ -162,11 +162,11 @@ def estimate_max_training_steps(
     remaining_budget = flop_budget - eval_flops
     max_steps = int(remaining_budget // flops_per_training_step)
 
-    print(f"\n🔢 Avg token count: {token_count}")
-    print(f"⚙️  FLOPs per training step (batch): {flops_per_training_step:.2e}")
-    print(f"🧪 Evaluation FLOPs: {eval_flops:.2e}")
-    print(f"🎯 Remaining budget for training: {remaining_budget:.2e}")
-    print(f"🚀 Max training steps allowed: {max_steps}")
+    print(f"\n Avg token count: {token_count}")
+    print(f"  FLOPs per training step (batch): {flops_per_training_step:.2e}")
+    print(f" Evaluation FLOPs: {eval_flops:.2e}")
+    print(f" Remaining budget for training: {remaining_budget:.2e}")
+    print(f" Max training steps allowed: {max_steps}")
 
     return max_steps
 

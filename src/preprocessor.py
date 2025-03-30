@@ -46,9 +46,9 @@ if __name__ == "__main__":
     preprocessor = LLMTIMEPreprocessor()
     
     for i, (prey, predator) in enumerate([(prey1, predator1), (prey2, predator2)], start=1):
-        print(f"\n🔄 Preprocessing Sample {i}...")
+        print(f"\n Preprocessing Sample {i}...")
         raw_text, tokenized_seq, scale_factor = preprocessor.preprocess_sample(prey, predator, num_steps=5)
-        print(f"\n📝 Formatted Input Text {i}:\n{raw_text}")
-        print(f"\n🔢 Tokenized Sequence {i}:\n{tokenized_seq.tolist()}")
-        print(f"\n⚖️  Scale Factor {i}: {scale_factor:.3f}")
+        print(f"\n Formatted Input Text {i}:\n{raw_text}")
+        print(f"\n Tokenized Sequence {i}:\n{tokenized_seq.tolist()}")
+        print(f"\n  Scale Factor {i}: {scale_factor:.3f}")
 

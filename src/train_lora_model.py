@@ -158,7 +158,7 @@ def train_lora_model(
 
     model.eval()
     if verbose:
-        print("✅ Training complete. Running validation...")
+        print(" Training complete. Running validation...")
 
     val_losses = []
     with torch.no_grad():
@@ -168,7 +168,7 @@ def train_lora_model(
 
     avg_val_loss = float(np.mean(val_losses))
     if verbose:
-        print(f"📊 Average validation loss: {avg_val_loss:.4f}")
+        print(f" Average validation loss: {avg_val_loss:.4f}")
 
     return model, avg_val_loss
 
