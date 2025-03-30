@@ -583,7 +583,7 @@ To assess forecasting performance, we used the trained model to generate predict
   \label{tab:avg_metrics_990_999}
   \end{table}
 
-  Our experiments demonstrate that with preprocessing and a modest number of LoRA-adapted parameters, LLMs can be fine-tuned for time-series forecasting even with tight FLOP constraints.
+  Our experiments demonstrate that LLMs can be fine-tuned for time-series forecasting even with tight FLOP constraints.
   
   The final model (LoRA rank 8, LR=$10^{-4}$, context length 768) achieved strong predictive accuracy, with validation loss 0.2878, perplexity 1.33, and test $R^2$ scores of 0.8772 for prey and 0.8600 for predator on Sample 972. These scores represent an improvement over the untrained model, which exhibited negative $R^2$ values and highly unstable forecasts.
   
@@ -603,11 +603,13 @@ To assess forecasting performance, we used the trained model to generate predict
   
   \subsection*{Conclusion}
 
-  This coursework demonstrates the feasibility of adapting large language models like Qwen2.5-Instruct for scientific time-series forecasting under strict compute constraints. By combining structured numeric preprocessing (LLMTIME), parameter-efficient fine-tuning using LoRA, and operation-level FLOP tracking, we achieved strong predictive performance on simulated predator-prey trajectories—while using only 62\% of the total FLOP budget. The approach generalised well across test sequences, showing that language models can capture meaningful temporal dynamics when guided by careful design.
+  This coursework demonstrates the feasibility of adapting large language models like Qwen2.5-Instruct for time-series forecasting under strict compute constraints. By combining structured numeric preprocessing, parameter-efficient fine-tuning using LoRA, and FLOP tracking, we achieved improved predictive performance on simulated predator-prey trajectories—while using 62\% of the total FLOP budget. The approach generalised well across test sequences, showing that language models can capture meaningful temporal dynamics.
   
-  To fine-tune time-series models under limited compute, we recommend using lightweight adaptation techniques as done in this work (LoRA), applying sample-specific preprocessing to reduce tokenisation overhead, and prioritising longer context windows over excessive training steps. FLOP tracking should be incorporated early in the design process to prevent inefficient experiments. Our results suggest that increasing context length is especially beneficial for autoregressive forecasting in cyclical systems like Lotka–Volterra.
+  To fine-tune time-series models under limited compute, we recommend using lightweight adaptation techniques as done in this work (e.g., LoRA), applying sample-specific preprocessing to reduce tokenisation overhead, and prioritising longer context windows over excessive training steps. FLOP tracking should be incorporated early in the design process to prevent inefficient experiments. Our results suggest that increasing context length is especially beneficial for autoregressive forecasting in cyclical systems like Lotka–Volterra.
   
-  For improved future performance, pretraining on structured numeric datasets could strengthen the model’s inductive biases for time-series data. Additionally, integrating recurrence into the architecture, or exploring hybrid models that combine transformers with traditional signal processing techniques, may yield gains in dynamic modelling. Efficiency can also be improved during inference by implementing early exit strategies such as SkipDecode~\cite{delcorro2023skipdecode}. Finally, extending this approach to noisy or real-world datasets would provide a stronger test of generalisation and robustness beyond simulation-based data.
+  For improved future performance, pretraining on structured numeric datasets could strengthen the model’s inductive biases for time-series data. Additionally, integrating recurrence into the architecture, or exploring hybrid models that combine transformers with traditional signal processing techniques, may yield gains in dynamic modelling. Efficiency can also be improved during inference by implementing early exit strategies such as SkipDecode~\cite{delcorro2023skipdecode}. Finally, extending this approach to noisy or real-world datasets would provide a stronger test of generalisation beyond simulation-based data.
+  
+  With more available compute, a much deeper hyperparameter sweep could be conducted, including systematic tuning of LoRA rank, learning rate, and context size. Eexploring loss functions that are more directly representative of the task—such as those based on trajectory similarity or sequence-level metrics—rather than relying solely on token-level cross-entropy would also be valuable.
   
   
 \begin{table}[ht]
