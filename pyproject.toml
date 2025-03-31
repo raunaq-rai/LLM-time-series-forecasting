@@ -9,7 +9,7 @@ description = "LLMTIME-based preprocessing and evaluation pipeline for Qwen2.5 m
 authors = [{ name = "Raunaq Rai", email = "rsr45@cam.ac.uk" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = [
     "torch>=2.1.0",
     "numpy>=1.26.0",

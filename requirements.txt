@@ -4,6 +4,7 @@ numpy==1.26.0
 transformers==4.38.0
 scikit-learn==1.4.0
 h5py==3.10.0
+accelerate
 
 # Testing dependencies
 pytest==8.3.3
