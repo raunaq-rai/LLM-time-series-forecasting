@@ -253,19 +253,22 @@ Using the Hugging Face \texttt{generate()} API, the model predicted one token at
   \begin{itemize}
     \item \textbf{Prey:}
       \begin{itemize}
-        \item Mean Squared Error (MSE): 0.1770
-        \item Mean Absolute Error (MAE): 0.2485
-        \item $R^2$ Score: -0.2812
+        \item Mean Squared Error (MSE): 0.3812
+        \item Mean Absolute Error (MAE): 0.3597
+        \item $R^2$ Score: -1.7590
       \end{itemize}
     \item \textbf{Predator:}
       \begin{itemize}
-        \item Mean Squared Error (MSE): 0.2337
-        \item Mean Absolute Error (MAE): 0.2793
-        \item $R^2$ Score: -1.6260
+        \item Mean Squared Error (MSE): 0.1324
+        \item Mean Absolute Error (MAE): 0.1904
+        \item $R^2$ Score: -0.4884
       \end{itemize}
   \end{itemize}
+
   
-  The prey trajectory shows moderate alignment, albeit with oversmoothing. The predator prediction, however, is unstable, with a negative $R^2$ indicating performance worse than simply predicting the mean. This reflects the model’s lack of understanding of the underlying dynamics.
+  Both the predator prediction, however, is unstable, with a negative $R^2$ indicating performance worse than simply predicting the mean. This reflects the model’s lack of understanding of the underlying dynamics.
+
+  Due to the autoregressive nature of language models and the sampling-based decoding used during generation, repeated runs on the same input often give different output sequences. This non-determinism, unless explicitly controlled with fixed seeds or deterministic decoding settings, contributes to the variability in forecasting performance across trials.
   
   \begin{figure}[h]
       \centering
@@ -274,8 +277,7 @@ Using the Hugging Face \texttt{generate()} API, the model predicted one token at
       \label{fig:sample972_untrained}
   \end{figure}
   
-  The untrained Qwen2.5-Instruct model exhibits some capacity to mimic the structure of the prey trajectory under LLMTIME formatting, likely due to its strong inductive bias and learned text patterns.
-  
+
   \section{FLOP Model}
 
 To estimate the total FLOPs used by the Qwen2.5-0.5B-Instruct model, we mapped every major component in the forward pass to arithmetic operations and computed their FLOP costs using Table~\ref{tab:flops_primitives}. For inference, we assume reuse of Key/Value caches, meaning dot-product attention scores are only computed for new tokens, not the full input sequence.
@@ -436,7 +438,7 @@ We compared the trained model against an untrained baseline (LoRA-enabled but wi
 
 \begin{itemize}
     \item \textbf{Untrained model (LoRA only, 0 steps):} Validation loss = \textbf{1.1926}
-    \item \textbf{LoRA-trained model (600 steps):} Validation loss = \textbf{0.9555}
+    \item \textbf{LoRA-trained model (600 steps):} Validation loss = \textbf{0.9651}
 \end{itemize}
 
 The performance improvement demonstrates that even a modest number of training steps is sufficient to adapt the model to the domain of Lotka–Volterra trajectories.
@@ -469,7 +471,7 @@ Each configuration was trained for 600 optimiser steps and evaluated on a held-o
       4 & 
       \makecell{600 steps \\ 4.22252\% \\ 0.6551} & 
       \makecell{600 steps \\ 4.22252\% \\ 0.7444} & 
-      \makecell{600 steps \\ 4.22252\% \\ 0.9555} \\
+      \makecell{600 steps \\ 4.22252\% \\ 0.9651} \\
       \hline
       8 & 
       \makecell{600 steps \\ 4.22516\% \\ 0.6147} & 
@@ -494,7 +496,7 @@ We next explored how the model’s performance is influenced by context length�
     \hline
     \textbf{Context Length} & \textbf{Validation Loss} & \textbf{Optimiser Steps} & \textbf{FLOPs Used (\%)} \\
     \hline
-    128 & 0.7088 & 600 & 1.02421 \\
+    128 & 0.7229 & 600 & 1.02421 \\
     512 & 0.6147 & 600 & \textit{(from previous section)} 4.22516 \\
     768 & 0.4207 & 600 & 6.46607 \\
     \hline
@@ -580,7 +582,7 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
 
   Our experiments demonstrate that LLMs can be fine-tuned for time-series forecasting with tight FLOP constraints.
   
-  The final model (LoRA rank 8, LR=$10^{-4}$, context length 768) achieved imporved prediction accuracy for sample 972 representing an improvement over the untrained model, which exhibited negative $R^2$ values and unstable forecasts.
+  The final model (LoRA rank 8, LR=$10^{-4}$, context length 768) achieved imporved prediction accuracy for sample 972 representing a great improvement over the untrained model, which exhibited negative $R^2$ values and unstable forecasts.
   
   
   \subsection*{Assumptions and Limitations}

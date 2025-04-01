@@ -60,7 +60,7 @@ class PredictionPipeline:
             )
             semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]
             if len(token_preds[0]) > 2000:
-                print("⚠️ Reached max token length")
+                print("Reached max token length")
                 break
 
         if len(semicolons) >= 100:
@@ -77,7 +77,7 @@ class PredictionPipeline:
         predictions = np.empty(num_tests, dtype=object)
 
         for idx, system in enumerate(series_list):
-            print(f"\n🔹 Test {idx+1} of {num_tests}")
+            print(f"\nTest {idx+1} of {num_tests}")
             predictions[idx] = self._predict_on_series(system)
 
         return predictions, series_list
@@ -96,7 +96,7 @@ class PredictionPipeline:
             pred_vals = [list(map(float, pair.split(','))) for pair in predictions[i].split(';') if ',' in pair]
 
             if not pred_vals:
-                print(f"⚠️ No valid predictions for Test {i+1}")
+                print(f"No valid predictions for Test {i+1}")
                 continue
 
             true_prey = [x[0] for x in true_vals]

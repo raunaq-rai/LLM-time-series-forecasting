@@ -2,7 +2,6 @@ from generate_predictions import TrajectoryDataset, PredictionPipeline
 from flops_model import forwards_pass_flops
 import numpy as np
 
-
 def count_tokens_for_series(pipeline, series, input_fraction, context_length=None):
     """
     Count the number of input tokens for a given time series.
@@ -163,16 +162,13 @@ def estimate_max_training_steps(
     max_steps = int(remaining_budget // flops_per_training_step)
 
     print(f"\n Avg token count: {token_count}")
-    print(f"  FLOPs per training step (batch): {flops_per_training_step:.2e}")
+    print(f" FLOPs per training step (batch): {flops_per_training_step:.2e}")
     print(f" Evaluation FLOPs: {eval_flops:.2e}")
     print(f" Remaining budget for training: {remaining_budget:.2e}")
     print(f" Max training steps allowed: {max_steps}")
 
     return max_steps
 
-
-
-# Optional CLI usage
 if __name__ == "__main__":
     import argparse
 

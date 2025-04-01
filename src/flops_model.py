@@ -7,9 +7,6 @@ flops_cost_division = 1
 flops_cost_exponentiation = 10
 flops_cost_sqrt = 10
 
-
-# Adding docstrings and training FLOPs to your FLOPs model
-
 def convert_tokens_to_embeddings():
     """
     Returns the FLOPs for converting tokens to embeddings.
