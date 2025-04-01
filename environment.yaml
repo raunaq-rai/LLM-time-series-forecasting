@@ -1,0 +1,20 @@
+name: m2-coursework
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - matplotlib
+  - h5py
+  - scikit-learn
+  - tqdm
+  - accelerate
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pip:
+      - transformers
+

@@ -1,22 +1,28 @@
-[build-system]
-requires = ["setuptools", "wheel"]
+k[build-system]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "m2-coursework"
 version = "0.1.0"
-description = "LLMTIME-based preprocessing and evaluation pipeline for Qwen2.5 model."
-authors = [{ name = "Raunaq Rai", email = "rsr45@cam.ac.uk" }]
-license = { text = "MIT" }
-readme = "README.md"
-requires-python = ">=3.9"
-dependencies = [
-    "torch>=2.1.0",
-    "numpy>=1.26.0",
-    "transformers>=4.38.0",
-    "scikit-learn>=1.4.0",
-    "h5py>=3.10.0",
-    "pytest>=8.3.3",
-    "mock>=5.0.0"
+description = "LoRA-based time-series forecasting using Qwen2.5 and LLMTIME"
+authors = [
+    { name = "Raunaq Rai", email = "your.email@domain.com" }
 ]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "h5py",
+    "scikit-learn",
+    "torch",
+    "accelerate",
+    "tqdm",
+    "transformers",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
