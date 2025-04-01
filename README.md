@@ -13,3 +13,11 @@ The goal of the coursework was to fine-tune a pretrained LLM—**Qwen2.5-0.5B-In
 
 The core idea was to test whether LLMs, typically trained on text, could be adapted for structured numerical tasks under realistic constraints.
 
+## Usage
+
+```bash
+conda env create -f environment.yaml
+conda activate m2-coursework
+pip install e .
+```
+
