@@ -13,6 +13,7 @@ def load_qwen_model():
 
     # Load tokenizer with trust_remote_code=True
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    tokenizer.padding_side = "left"
 
     # Load model with trust_remote_code=True
     model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)

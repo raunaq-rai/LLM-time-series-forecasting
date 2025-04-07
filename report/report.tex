@@ -519,19 +519,19 @@ We selected the following hyperparameters for our final model configuration:
     \item \textbf{Context Length:} 768
 \end{itemize}
 
-We trained the model for 6,000 steps using this setup, which was approximately 62\% of the total FLOP budget. Evaluation on a held-out validation set yielded a final loss of 0.2878 and a perplexity of 1.33.
+We trained the model for 5,000 steps using this setup, which was approximately 62\% of the total FLOP budget. Evaluation on a held-out validation set yielded a final loss of 0.2981 and a perplexity of 1.35.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\linewidth]{training_loss.png}
-    \caption{Training loss curve for the full 6,000-step run. The dashed red line indicates final validation loss.}
+    \caption{Training loss curve for the full 5,000-step run. The dashed red line indicates final validation loss.}
     \label{fig:training_loss}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\linewidth]{zoomed_training_loss.png}
-    \caption{Training loss over the last 3,000 steps. The model shows stable convergence and loss is decreasing up to 6000 steps.}
+    \caption{Training loss over the last 2,500 steps.}
     \label{fig:zoomed_training_loss}
 \end{figure}
 
@@ -628,10 +628,10 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
   \hline
   \textbf{Total FLOPs available} & -- & $6.67 \times 10^{16}$ & \textbf{66.72\%} \\
   \hline
-  \textbf{3c} - Final model & 6000 & $6.23 \times 10^{16}$ & 62.25\% \\
+  \textbf{3c} - Final model & 5000 & $5.17 \times 10^{16}$ & 51.90\% \\
   \textbf{3c} - Model evaluation & -- & $3.14 \times 10^{15}$ & 3.14\% \\
   \hline
-  \textbf{Remaining FLOPs} & -- & $1.34 \times 10^{15}$ & \textbf{1.34\%} \\
+  \textbf{Remaining FLOPs} & -- & $1.48 \times 10^{16}$ & \textbf{14.82\%} \\
   \hline
   \end{tabular}%
   }
@@ -642,7 +642,7 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
 
   \subsection*{Conclusion}
 
-  This coursework demonstrates the feasibility of adapting large language models like Qwen2.5-Instruct for time-series forecasting under strict compute constraints. By combining structured numeric preprocessing, parameter-efficient fine-tuning using LoRA, and FLOP tracking, we achieved improved predictive performance on simulated predator-prey trajectories - having used approximately 99\% of the FLOPs budget. The approach generalised well across test sequences, showing that language models can capture meaningful temporal dynamics.
+  This coursework demonstrates the feasibility of adapting large language models like Qwen2.5-Instruct for time-series forecasting under strict compute constraints. By combining structured numeric preprocessing, parameter-efficient fine-tuning using LoRA, and FLOP tracking, we achieved improved predictive performance on simulated predator-prey trajectories - having used approximately 85\% of the FLOPs budget. The approach generalised well across test sequences, showing that language models can capture meaningful temporal dynamics.
   
   To fine-tune time-series models under limited compute, we recommend using lightweight adaptation techniques as done in this work (LoRA), applying sample-specific preprocessing to reduce tokenisation overhead, and prioritising longer context windows over excessive training steps. FLOP tracking should be incorporated early in the design process to prevent inefficient experiments. Our results suggest that increasing context length is especially beneficial for autoregressive forecasting in cyclical systems like Lotka–Volterra.
   
