@@ -29,7 +29,7 @@
 \author{Raunaq Rai (rsr45@cam.ac.uk)\\
     Data Intensive Science, Department of Physics, University of Cambridge
 }
-\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2961}}
+\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2974}}
 
 \begin{document}
 
@@ -118,8 +118,9 @@ Thus, the total training FLOPs are given by:
 \text{FLOPs}_{\text{train}} \approx 3 \times \text{FLOPs}_{\text{forward}}
 \end{equation}
 
-\section{LLMTIME Preprocessing Implementation}
+The total computational cost across all experiments is summarised in Table \ref{tab:flop-total}.
 
+\section{LLMTIME Preprocessing Implementation}
 
 We implemented the LLMTIME preprocessing scheme \citep{gruver2023language} to convert multivariate time-series data into a format suitable for Qwen2.5-Instruct. This was done by creating a dedicated Python module (preprocessor.py) containing a class LLMTIMEPreprocessor, which formats and tokenizes time-series data into LLMTIME-style strings for model input.
 
