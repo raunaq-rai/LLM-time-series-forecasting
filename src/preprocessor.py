@@ -8,6 +8,7 @@ class LLMTIMEPreprocessor:
     def __init__(self, decimal_places=2):
         self.decimal_places = decimal_places
         self.model, self.tokenizer = load_qwen_model()  # Unpacking only two values
+        self.tokenizer.padding_side = "left"
         self.scale_factor = None  # Initialize scale_factor as None
 
     def auto_scale_factor(self, prey, predator):
@@ -25,12 +26,16 @@ class LLMTIMEPreprocessor:
 
     def tokenize_input(self, text):
         """Tokenizes formatted text using Qwen2.5 tokenizer."""
+        print(">>> Padding side in tokenize_input:", self.tokenizer.padding_side)
+        self.tokenizer.padding_side = "left"
         return self.tokenizer(text, return_tensors="pt", truncation=True, padding=True)["input_ids"]
+
 
     def preprocess_sample(self, prey, predator, num_steps=50):
         """Formats and tokenizes a time-series sample, returning scale factor."""
         text = self.format_input(prey, predator, num_steps)
         tokenized = self.tokenize_input(text)
+        self.tokenizer.padding_side = "left"
         return text, tokenized, self.scale_factor  
 
 
