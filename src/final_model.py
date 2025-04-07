@@ -13,6 +13,18 @@ from preprocessor import LLMTIMEPreprocessor
 
 
 class LoRALinear(nn.Module):
+    """
+    A custom linear layer that injects Low-Rank Adaptation (LoRA) into an existing nn.Linear layer.
+
+    Args:
+        original_linear (nn.Linear): The original linear layer to augment.
+        r (int): Rank of the low-rank matrices.
+        alpha (int, optional): Scaling factor for LoRA. Defaults to r if not specified.
+
+    Forward Pass:
+        Returns the original output plus the scaled LoRA update.
+    """
+
     def __init__(self, original_linear: nn.Linear, r: int, alpha: int = None):
         super().__init__()
         self.original_linear = original_linear
@@ -36,6 +48,19 @@ class LoRALinear(nn.Module):
 
 
 def process_sequences(texts, tokenizer, max_length=768, stride=384):
+    """
+    Tokenizes and splits text sequences into fixed-length chunks with optional overlap (stride).
+
+    Args:
+        texts (List[str]): List of input text sequences.
+        tokenizer: HuggingFace tokenizer for tokenization.
+        max_length (int): Maximum token length for each chunk.
+        stride (int): Overlap between chunks.
+
+    Returns:
+        torch.Tensor: Tensor of input IDs shaped (num_chunks, max_length).
+    """
+
     all_input_ids = []
     for text in texts:
         encoding = tokenizer(text, return_tensors="pt", add_special_tokens=False)
@@ -52,6 +77,18 @@ def process_sequences(texts, tokenizer, max_length=768, stride=384):
 
 
 def evaluate(model, dataloader, accelerator):
+    """
+    Evaluates a model on a given validation DataLoader.
+
+    Args:
+        model (nn.Module): The trained model to evaluate.
+        dataloader (DataLoader): Validation data loader.
+        accelerator (Accelerator): HuggingFace `Accelerator` object for hardware abstraction.
+
+    Returns:
+        Tuple[float, float]: Average loss and perplexity over the validation set.
+    """
+
     model.eval()
     val_losses = []
     with torch.no_grad():
@@ -74,6 +111,25 @@ def train_lora_model(
     val_fraction=0.2,
     verbose=True
 ):
+    """
+    Trains a Qwen model with LoRA applied to the query and value projection layers.
+
+    Args:
+        data_path (str): Path to the HDF5 dataset.
+        context_length (int): Max token sequence length.
+        lora_rank (int): LoRA rank for low-rank adaptation.
+        learning_rate (float): Learning rate for the optimizer.
+        batch_size (int): Number of samples per training batch.
+        max_steps (int): Maximum number of training steps.
+        input_fraction (float): Fraction of time series used for training.
+        val_fraction (float): Fraction of time series used for validation.
+        verbose (bool): Whether to print training progress and plots.
+
+    Returns:
+        Tuple[nn.Module, tokenizer, DataLoader, float, float]: The trained model, tokenizer,
+        validation DataLoader, average validation loss, and perplexity.
+    """
+
     model, tokenizer = load_qwen_model()
 
     for layer in model.model.layers:
