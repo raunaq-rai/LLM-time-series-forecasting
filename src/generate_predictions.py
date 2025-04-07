@@ -8,21 +8,42 @@ from preprocessor import LLMTIMEPreprocessor
 
 
 class TrajectoryDataset:
+    """
+    Loads and manages access to Lotka-Volterra time series data stored in an HDF5 file.
+
+    Args:
+        file_path (str): Path to the HDF5 file containing the 'trajectories' dataset.
+    """
+
     def __init__(self, file_path):
         self.file_path = file_path
         self.trajectories = self.load_data()
 
     def load_data(self):
+        """Load the trajectory data from the HDF5 file."""
         with h5py.File(self.file_path, "r") as f:
             return f["trajectories"][:]
 
     def get_random_systems(self, num_samples=5, seed=42):
+        """Select a random subset of trajectories from the dataset.
+        Args:
+            num_samples (int): Number of random samples to select.
+            seed (int): Random seed for reproducibility.
+        Returns:
+            list: List of randomly selected trajectories.
+        """
         np.random.seed(seed)
         indices = np.random.choice(len(self.trajectories), num_samples, replace=False)
         return [self.trajectories[i] for i in indices]
 
 
 class PredictionPipeline:
+    """
+    A class to handle the prediction pipeline using a pre-trained model.
+    Args:
+        dataset (TrajectoryDataset): An instance of TrajectoryDataset containing the data.
+        input_fraction (float): Fraction of the time series used as input for predictions.
+    """
     def __init__(self, dataset: TrajectoryDataset, input_fraction=0.6):
         self.model, self.tokenizer = load_qwen_model()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -37,6 +58,7 @@ class PredictionPipeline:
         return ";".join([f"{p:.2f},{q:.2f}" for p, q in truncated])
 
     def _predict_on_series(self, series):
+        """Generate predictions for a single time series."""
         input_timesteps = int(self.input_fraction * 100)
         output_timesteps = 100 - input_timesteps
 
@@ -73,6 +95,7 @@ class PredictionPipeline:
         return decoded
 
     def predict(self, num_tests=5, seed=240901):
+        """Generate predictions for a specified number of random time series."""
         series_list = self.dataset.get_random_systems(num_tests, seed)
         predictions = np.empty(num_tests, dtype=object)
 
@@ -83,14 +106,16 @@ class PredictionPipeline:
         return predictions, series_list
 
     def predict_by_index(self, index):
+        """Generate predictions for a specific trajectory by index."""
         if index < 0 or index >= len(self.dataset.trajectories):
             raise IndexError(f"Index {index} is out of bounds")
 
         system = self.dataset.trajectories[index]
         prediction = self._predict_on_series(system)
-        return [prediction], [system]  # Return in list form for easy plotting
+        return [prediction], [system]
 
     def plot_predictions(self, predictions, original_series):
+        """Plot the true and predicted values for prey and predator populations."""
         for i in range(len(predictions)):
             true_vals = original_series[i]
             pred_vals = [list(map(float, pair.split(','))) for pair in predictions[i].split(';') if ',' in pair]
