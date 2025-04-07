@@ -12,6 +12,8 @@
 \usepackage{subcaption}
 \usepackage[numbers]{natbib}
 \usepackage{makecell}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
 
 
 
@@ -27,7 +29,7 @@
 \author{Raunaq Rai (rsr45@cam.ac.uk)\\
     Data Intensive Science, Department of Physics, University of Cambridge
 }
-\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2963}}
+\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2997}}
 
 \begin{document}
 
@@ -123,20 +125,23 @@ Thus, the total training FLOPs are given by:
 
 \section{LLMTIME Preprocessing Implementation}
 
-We implemented the LLMTIME preprocessing scheme \citep{gruver2023language} to convert multivariate time-series data into a format suitable for Qwen2.5-Instruct. This was done by creating a dedicated Python module (preprocessor.py) containing a class LLMTIMEPreprocessor, which formats and tokenizes time-series data.
+
+We implemented the LLMTIME preprocessing scheme \citep{gruver2023language} to convert multivariate time-series data into a format suitable for Qwen2.5-Instruct. This was done by creating a dedicated Python module (preprocessor.py) containing a class LLMTIMEPreprocessor, which formats and tokenizes time-series data into LLMTIME-style strings for model input.
+
+The data used in this coursework consists of simulated trajectories from the Lotka–Volterra predator-prey system, a well-known model in population dynamics. Each time series contains 100 steps with two variables: prey population and predator population. The full dataset contains 1000 such trajectories stored in a single file.
 
 \subsection*{Scaling and Formatting}
 
-Each sample consists of a pair of sequences - prey and predator population values over time. These values can vary in magnitude both within and across samples, which can lead to inconsistent token lengths after formatting and impair the model’s ability to generalise.
+Each sample, consisting of a pair of sequences, can vary in magnitude both within and across samples. This can lead to inconsistent token lengths after formatting and limit the model’s ability to generalise.
 
-To account for this, we compute a per-sample scaling factor $\alpha$ that normalises the numerical range before tokenisation:
+To account for this, we compute a per-sample scaling factor $\alpha$ that normalises the numerical range before tokenization:
 \begin{equation}
 \alpha = \frac{1}{10} \cdot \max\left(\text{percentile}_{95}(\text{prey}),\ \text{percentile}_{95}(\text{predator})\right)
 \end{equation}
 
 We then divide each value in the prey and predator sequences by $\alpha$, ensuring that the majority of values fall within the range $[0, 10]$. This sample-specific scaling avoids the limitations of global normalisation and makes the model more robust to differences in scale across the dataset.
 
-Finally, all scaled values are rounded to two decimal places. This rounding step reduces the number of unique numeric tokens, improving tokenisation consistency and helping prevent overfitting to insignificant digit-level variation.
+Finally, all scaled values are rounded to two decimal places. This rounding step reduces the number of unique numeric tokens, improving tokenization consistency and helping prevent overfitting to insignificant digit-level variation.
 
 
 \subsection*{LLMTIME Encoding}
@@ -144,14 +149,13 @@ Finally, all scaled values are rounded to two decimal places. This rounding step
 Following the LLMTIME convention, each timestep is represented as a pair of variables (prey, predator), separated by a comma. Consecutive timesteps are separated by a semicolon. While the original LLMTIME implementation by \citet{gruver2023language} removes decimal points to reduce sequence length, especially for GPT-style models that tokenize numbers into subword units, we keep the decimal point in our implementation for several important reasons:
 
 \begin{itemize}
-  \item Removing the decimal point would introduce additional digits and increase sequence length without benefit.
   \item Preserving the decimal enhances human interpretability and simplifies decoding during inference.
   \item The coursework specification explicitly recommends retaining the decimal point.
 \end{itemize}
 
 \subsection*{Tokenization}
 
-Once formatted, the numeric string is passed through Qwen2.5’s tokenizer using Hugging Face’s AutoTokenizer interface \cite{huggingface}. Each digit and punctuation mark is tokenized into its own token.
+Once formatted, the numeric string is passed through Qwen2.5’s tokenizer using Hugging Face’s AutoTokenizer interface \cite{huggingface}. Each digit and punctuation mark is tokenized into its own token. Two examples of this are shown below:
 
 \paragraph{Example 1.}
 \begin{itemize}
@@ -215,7 +219,7 @@ Predator: [2.8, 2.5, 2.2, 1.9, 1.6]
 \begin{figure}[H]
   \centering
 
-  \begin{subfigure}[t]{0.95\textwidth}
+  \begin{subfigure}[H]{0.8\textwidth}
       \centering
       \includegraphics[width=\textwidth]{true_vs_decoded.png}
       \caption{Decoded output vs.\ ground truth for the 972\textsuperscript{nd} Lotka-Volterra trajectory in the test set. This sequence was passed through the LLMTIME preprocessing pipeline, the resulting output was decoded and rescaled using the same scale factor $\alpha$ applied during encoding.}
@@ -224,7 +228,7 @@ Predator: [2.8, 2.5, 2.2, 1.9, 1.6]
 
   \vspace{0.5cm}
 
-  \begin{subfigure}[t]{0.95\textwidth}
+  \begin{subfigure}[H]{0.8\textwidth}
       \centering
       \includegraphics[width=\textwidth]{absolute_differences.png}
       \caption{Absolute differences between true and decoded prey (left) and predator (right) values for the 972\textsuperscript{nd} test sequence.  The close alignment between original and decoded values confirms that the preprocessing, tokenization, and decoding pipeline is working as intended.}
@@ -240,7 +244,7 @@ Predator: [2.8, 2.5, 2.2, 1.9, 1.6]
 
 We assessed the forecasting ability of the untrained Qwen2.5-0.5B-Instruct model \cite{qwen2.5} using Sample ID 972. The first 50 timesteps were provided as input in LLMTIME format, and the model was tasked with generating the remaining 50 steps.
 
-Using the Hugging Face 'generate()' API \cite{huggingface}, the model predicted one token at a time, with each new token requiring a full forward pass.
+Using the Hugging Face generate() API \cite{huggingface}, the model predicted one token at a time, with each new token requiring a full forward pass.
 
 \subsection*{Forecasting Performance}
 
@@ -276,7 +280,7 @@ The negative $R^2$ scores for both prey and predator indicate that the model per
 
   \section{FLOP Model}
 
-To estimate the total FLOPs used by the Qwen2.5-0.5B-Instruct model, we mapped every major component in the forward pass to arithmetic operations and computed their FLOP costs using Table~\ref{tab:flops_primitives}. For inference, we assume reuse of Key/Value caches, meaning dot-product attention scores are only computed for new tokens, not the full input sequence.
+To calculate the total FLOPs used by the Qwen2.5-0.5B-Instruct model, we mapped every major component in the forward pass to arithmetic operations and computed their FLOP costs using Table~\ref{tab:flops_primitives}. For inference, we assume reuse of Key/Value caches, meaning dot-product attention scores are only computed for new tokens, not the full input sequence.
 
 \subsection*{Token and Positional Embeddings}
 \begin{itemize}
@@ -350,8 +354,12 @@ Let $d$ be the model embedding dimension, $d_{\text{ff}}$ the hidden (feedforwar
 
 
 \subsection*{Final Projection to Vocabulary Logits}
+
+At the final stage of the model, the hidden representation for each token is projected into the vocabulary space to compute logits over all possible output tokens. This is done via a single linear transformation with weight matrix $W \in \mathbb{R}^{V \times d}$, where $V$ is the vocabulary size and $d$ is the model's hidden dimension.
+
 \begin{itemize}
-  \item \textbf{Linear Projection:} $n \times d \times V$ multiplications and $n \times (d - 1) \times V$ additions.
+  \item \textbf{Multiplications:} For each of the $n$ tokens in the sequence, we compute a dot product between the hidden vector and each of the $V$ vocabulary embeddings — resulting in $n \times d \times V$ multiplications.
+  \item \textbf{Additions:} Each of those dot products involves $d-1$ additions, giving a total of $n \times (d - 1) \times V$ additions.
 \end{itemize}
 
 \subsection*{LoRA Projections}
@@ -421,6 +429,46 @@ where $W$ is the original frozen weight matrix and $\alpha$ is a scaling factor 
 
 We fine-tuned only the LoRA parameters ($A$, $B$) while keeping the base model parameters frozen. The adapted layers were implemented by replacing q\_proj and v\_proj in each transformer block.
 
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric}
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=1.6cm and 1.4cm,
+    every node/.style={font=\small},
+    box/.style={rectangle, draw=black, rounded corners, minimum width=3cm, minimum height=1.2cm, align=center},
+    lora/.style={rectangle, draw=blue!60, rounded corners, minimum width=2.4cm, minimum height=1cm, align=center, fill=blue!10},
+    sum/.style={circle, draw=black, fill=gray!15, minimum size=0.8cm, inner sep=0pt},
+    arrow/.style={-Stealth, thick},
+    larrow/.style={-Stealth, thick, blue}
+]
+
+\node[box] (input) {Input $x$};
+\node[box, right=1cm of input] (frozen) {Frozen Linear \\ $Wx$};
+\node[sum, right=2.0cm of frozen] (add) {$+$};
+\node[box, right=2.2cm of add] (output) {Final Output};
+
+\node[lora, below=2.3cm of frozen] (A) {Down-Projection \\ $A \in \mathbb{R}^{r \times d}$};
+\node[lora, right=of A] (B) {Up-Projection \\ $B \in \mathbb{R}^{d \times r}$};
+\node[lora, right=of B] (scale) {Scale $\frac{\alpha}{r}$};
+
+\draw[arrow] (input) -- (frozen);
+\draw[arrow] (frozen) -- (add);
+\draw[arrow] (add) -- (output);
+
+\draw[larrow] (input) |- (A);
+\draw[larrow] (A) -- (B);
+\draw[larrow] (B) -- (scale);
+\draw[larrow] (scale) -- ([yshift=-0.1cm]add.south);
+
+\node[above=0.2cm of frozen] {\footnotesize \textit{Frozen (not trained)}};
+\node[below=0.35cm of B] {\footnotesize \textcolor{blue!60}{\textit{Trainable LoRA Path}}};
+\node[above=0.2cm of add] {\footnotesize Elementwise sum};
+
+\end{tikzpicture}
+\caption{LoRA adaptation of a linear layer. Only the blue LoRA path is trained; the original weights ($W$) are frozen. The output of the LoRA branch is scaled before being added to the frozen path.}
+\label{fig:lora-flow-clear}
+\end{figure}
+
 Training was performed for 600 steps using default hyperparameters:
 \begin{itemize}
     \item \texttt{lora\_rank} = 4
@@ -429,7 +477,15 @@ Training was performed for 600 steps using default hyperparameters:
     \item \texttt{context\_length} = 512
 \end{itemize}
 
-We compared the trained model against an untrained baseline (LoRA-enabled but with zero optimisation steps). Both models were evaluated on a held-out validation set of 200 trajectories, using cross-entropy loss as the evaluation metric.
+We compared the trained model against an untrained baseline (LoRA-enabled but with zero optimisation steps). Both models were evaluated on a held-out validation set of 200 trajectories.
+Evaluation was performed using cross-entropy loss, which measures how well the model's predicted probability distribution aligns with the true token distribution:
+
+\begin{equation}
+  \mathcal{L}_{\text{CE}} = - \frac{1}{T} \sum_{t=1}^{T} \log p_\theta(y_t \mid y_{<t}) = - \frac{1}{T} \sum_{t=1}^{T} \log p_\theta(y_t \mid y_1, y_2, \dots, y_{t-1})
+\end{equation}
+
+Here, $T$ denotes the total number of tokens in the sequence. The term $y_t$ represents the ground truth token at position $t$, while $y_{<t}$ refers to the sequence of all previous tokens from position 1 up to $t-1$. The model, parameterised by $\theta$, estimates the conditional probability $p_\theta(y_t \mid y_{<t})$, which is the probability it assigns to the correct next token given the preceding context.
+
 
 \subsection*{Results}
 
@@ -503,9 +559,9 @@ We next explored how the model’s performance is influenced by context length�
   \label{tab:context_length_results}
 \end{table}
 
-As expected, validation loss improves with increasing context length: longer contexts provide the model with more of the input sequence, enabling it to learn temporal patterns — especially important in cyclical systems like the Lotka–Volterra dynamics.
+As expected, validation loss improves with increasing context length: longer contexts provide the model with more of the input sequence, enabling it to learn temporal patterns.
 
-However, this benefit comes at a computational cost. Moving from 128 to 768 tokens increases the proportion of total FLOPs used from approximately 1\% to over ~ 6\%, with the same number of training steps.
+However, this benefit comes at a computational cost. Moving from 128 to 768 tokens increases the proportion of total FLOPs used from approximately 1\% to over 6\%, with the same number of training steps.
 
 \section{Final Model Training and Evaluation}
 
@@ -579,7 +635,7 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
 
   Our experiments demonstrate that LLMs can be fine-tuned for time-series forecasting with tight FLOP constraints.
   
-  The final model (LoRA rank 8, LR=$10^{-4}$, context length 768) achieved imporved prediction accuracy for sample 972 representing a great improvement over the untrained model, which exhibited negative $R^2$ values and unstable forecasts.
+  The final model (LoRA rank 8, LR=$10^{-4}$, context length 768) achieved improved prediction accuracy for sample 972 representing a great improvement over the untrained model, which exhibited negative $R^2$ values and unstable forecasts.
   
   \section{Conclusion}
 
