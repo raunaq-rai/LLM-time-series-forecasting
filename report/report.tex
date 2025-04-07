@@ -29,7 +29,7 @@
 \author{Raunaq Rai (rsr45@cam.ac.uk)\\
     Data Intensive Science, Department of Physics, University of Cambridge
 }
-\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2997}}
+\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2961}}
 
 \begin{document}
 
@@ -46,8 +46,6 @@ This report describes the implementation of LLMTIME preprocessing, baseline eval
 \section{Compute Constraint}
 
 This coursework requires efficient experimentation under a strict compute budget of $10^{17}$ floating point operations (FLOPs) across all reported experiments.
-
-\subsection*{FLOP Accounting Principles}
 
 FLOP costs are calculated using simplified, hardware-agnostic assumptions. Table~\ref{tab:flops_primitives} provides the per-operation FLOP estimates:
 
@@ -636,14 +634,15 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
   
   \section{Conclusion}
 
-  This project demonstrates that large language models can be effectively repurposed for time-series forecasting under stringent compute constraints when enhanced with parameter-efficient techniques like Low-Rank Adaptation (LoRA). By integrating the LLMTIME preprocessing framework, adopting a FLOP-aware design, and performing systematic hyperparameter tuning, we successfully adapted Qwen2.5-Instruct to model predator-prey dynamics as described by the Lotka–Volterra equations. Our experimental results indicate that increasing the LoRA rank incurs only a marginal increase in FLOP usage compared to full fine-tuning—a cost that is far outweighed by the substantial improvements in forecasting accuracy. Notably, our final configuration—with a LoRA rank of 8, a learning rate of $10^{-4}$, and a context length of 768—achieved robust predictive performance while operating well within the $10^{17}$ FLOP budget.
+  This project demonstrates that large language models can be effectively repurposed for time-series forecasting under compute constraints when enhanced with parameter-efficient techniques like Low-Rank Adaptation. By integrating the LLMTIME preprocessing framework, adopting a FLOP-aware design, and performing systematic hyperparameter tuning, we successfully adapted Qwen2.5-Instruct to model predator-prey dynamics as described by the Lotka–Volterra equations. Our experimental results indicate that increasing the LoRA rank incurs only a marginal increase in FLOP usage compared to full fine-tuning—a cost that is outweighed by the improvements in forecasting accuracy. Notably, our final configuration—with a LoRA rank of 8, a learning rate of $10^{-4}$, and a context length of 768—achieved promising predictive performance while operating within the $10^{17}$ FLOP budget.
   
-  Our work also revealed several critical considerations for future research. The inherent non-determinism in autoregressive decoding leads to variability in the generated outputs, highlighting the importance of incorporating techniques to control or account for randomness during evaluation. Our hyperparameter search further suggests that our current settings lie at the edge of optimal performance, as improvements in validation loss were observed with higher LoRA ranks, larger learning rates, and extended context lengths. Future experiments should explore configurations beyond a rank of 8 and learning rates above $10^{-4}$, as well as push the architectural limits regarding context length to capture more complex temporal dependencies.
+  Our work also showed several considerations for future research. The inherent non-determinism in autoregressive decoding leads to variability in the generated outputs, highlighting the importance of incorporating techniques to control or account for randomness during evaluation. Our hyperparameter search further suggests that our current settings lie at the edge of optimal performance, as improvements in validation loss were observed with higher LoRA ranks, larger learning rates, and extended context lengths. Future experiments should explore configurations beyond a rank of 8 and learning rates above $10^{-4}$, as well as push the architectural limits regarding context length to capture more complex temporal dependencies.
   
   Additionally, our current implementation does not incorporate advanced dynamic inference strategies such as early exit or adaptive computation (e.g., SkipDecode~\cite{delcorro2023skipdecode}). These methods enable the model to dynamically determine when sufficient confidence is reached during the forward pass, thereby terminating computation early and further reducing FLOP usage without compromising performance. We recommend that future work investigates these techniques along with the adoption of more tailored loss functions—such as sequence-level objectives that better reflect the nuances of forecasting accuracy. Exploring hybrid architectures that integrate transformers with classical dynamical systems or recurrent elements may also enhance both performance and interpretability.
   
-  Overall, this project presents a promising approach to leveraging large language models for structured prediction tasks under strict compute limitations. By strategically combining efficient adaptation, FLOP-aware design, and targeted hyperparameter optimization, our work lays a strong foundation for further advancements in time-series forecasting and structured numeric prediction using LLMs.
-\begin{table}[ht]
+  Overall, this project presents a promising approach to utilising large language models for structured prediction tasks under strict compute limitations by combining efficient adaptation, FLOP-aware design, and hyperparameter optimisation.
+
+  \begin{table}[ht]
   \centering
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{|l|c|c|c|}

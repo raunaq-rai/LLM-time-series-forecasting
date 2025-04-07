@@ -4,7 +4,6 @@ __pycache__/
 *.pyo
 *.pyd
 *.pkl
-*.png
 
 *.pt
 
