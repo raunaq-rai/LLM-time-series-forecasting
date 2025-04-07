@@ -35,25 +35,21 @@
 
 \section*{Introduction}
 
-Large Language Models have recently shown promise in domains beyond text, including time-series forecasting \citep{gruver2023language}. In this coursework, we explore the application of Low-Rank Adaptation (LoRA) \citep{hu2021lora} to the Qwen2.5-Instruct model \citep{qwen2.5}, a transformer-based LLM, for forecasting predator-prey population dynamics as described by the Lotka–Volterra equations \citep{takeuchi2006lotka}.
+Recent advances have demonstrated that Large Language Models (LLMs) can be effective not only in natural language tasks but also in domains such as time-series forecasting \citep{gruver2023language}. In this coursework, we explore the application of Low-Rank Adaptation (LoRA) \citep{hu2021lora} to the Qwen2.5-Instruct model \citep{qwen2.5}, a transformer-based LLM, for forecasting predator-prey population dynamics as described by the Lotka–Volterra equations \citep{takeuchi2006lotka}.
 
 Utilising the preprocessing methodology in the LLMTIME framework \citep{gruver2023language}, we examine how Qwen2.5-Instruct can be repurposed for numerical prediction tasks. The objective is to fine-tune the model on a dataset of simulated predator-prey trajectories using LoRA, which allows for the adaptation of pretrained models without updating all weights.
 
-This report outlines the implementation of LLMTIME preprocessing, baseline evaluation of the untrained model, LoRA fine-tuning with hyperparameter sweeps, and analysis of forecasting performance under compute-efficient constraints.
+This report describes the implementation of LLMTIME preprocessing, baseline evaluation of the untrained model, LoRA fine-tuning with hyperparameter sweeps, and analysis of forecasting performance under compute constraints.
 
 \section{Compute Constraint}
 
-This coursework promotes efficient experimentation under a strict compute budget of $10^{17}$ floating point operations (FLOPs) across all reported experiments.
+This coursework requires efficient experimentation under a strict compute budget of $10^{17}$ floating point operations (FLOPs) across all reported experiments.
 
 \subsection*{FLOP Accounting Principles}
 
 FLOP costs are calculated using simplified, hardware-agnostic assumptions. Table~\ref{tab:flops_primitives} provides the per-operation FLOP estimates. For example, multiplying an $m \times n$ matrix by an $n \times p$ matrix requires:
 \begin{equation}
 \text{FLOPs}_{\text{matmul}} = m \times p \times (2n - 1)
-\end{equation}
-We also assume that backpropagation incurs double the cost of the forward pass. This is because it is difficult to estimate the FLOPs for backpropagation accurately, as it depends on the implementation and optimisations used. However, a conservative estimate is to assume that the backward pass is approximately double the cost of the forward pass.
-\begin{equation}
-\text{FLOPs}_{\text{train}} = 3 \times \text{FLOPs}_{\text{forward}}
 \end{equation}
 
 \begin{table}[h]
@@ -77,7 +73,7 @@ We also assume that backpropagation incurs double the cost of the forward pass. 
 
 \subsection*{FLOP Estimator Implementation}
 
-To estimate the computational cost of each experiment, we implemented a FLOP estimator in Python (\texttt{flops\_model.py} and \texttt{compute\_flops.py}). This estimator models a forward pass through the Qwen2.5-0.5B architecture.
+To estimate the computational cost of each experiment, we implemented a FLOP estimator in Python (flops\_model.py and compute\_flops.py). This estimator models a forward pass through the Qwen2.5-0.5B architecture. These scripts were validated through a corresponding test set.
 
 The estimator accounts for every trainable and non-trainable component of the model. For a given sequence length $n$, the estimator computes the total number of FLOPs for each of the following:
 
@@ -97,7 +93,7 @@ The estimator accounts for every trainable and non-trainable component of the mo
   \item \textbf{Feedforward MLP with SwiGLU}: As described by \citet{shazeer2020glu}, this block consists of:
   \begin{itemize}
     \item Two parallel linear up-projections from the model dimension to the hidden dimension: one to produce the activation input, and one to produce the gating values.
-    \item A \texttt{SwiGLU} activation function, which applies the SiLU nonlinearity to one stream and multiplies it elementwise with the other (gating).
+    \item A SwiGLU activation function, which applies the SiLU nonlinearity to one stream and multiplies it elementwise with the other (gating).
     \item A final down-projection from the hidden dimension back to the model dimension.
   \end{itemize}  
 
@@ -106,7 +102,7 @@ The estimator accounts for every trainable and non-trainable component of the mo
     \item Elementwise squaring, summation, square root, division, and scaling by a learned parameter $\gamma$.
   \end{itemize}
 
-  \item \textbf{LoRA Projections (if used)}: As proposed by \citet{hu2021lora}, LoRA introduces:
+  \item \textbf{LoRA Projections}: As proposed by \citet{hu2021lora}, LoRA introduces:
   \begin{itemize}
     \item Low-rank down- and up-projection matrices added to the frozen base weights.
     \item FLOPs from these include multiplications, additions, and a residual connection.
@@ -127,13 +123,13 @@ Thus, the total training FLOPs are given by:
 
 \section{LLMTIME Preprocessing Implementation}
 
-We implemented the LLMTIME preprocessing scheme \citep{gruver2023language} to convert multivariate time-series data into a format suitable for Qwen2.5-Instruct. This was done by creating a dedicated Python module \texttt{src/preprocessor.py} containing a class \texttt{LLMTIMEPreprocessor}, which formats and tokenizes time-series data.
+We implemented the LLMTIME preprocessing scheme \citep{gruver2023language} to convert multivariate time-series data into a format suitable for Qwen2.5-Instruct. This was done by creating a dedicated Python module (preprocessor.py) containing a class LLMTIMEPreprocessor, which formats and tokenizes time-series data.
 
 \subsection*{Scaling and Formatting}
 
-Each sample consists of a pair of sequences—prey and predator population values over time. These values can vary in magnitude both within and across samples, which can lead to inconsistent token lengths after formatting and impair the model’s ability to generalise.
+Each sample consists of a pair of sequences - prey and predator population values over time. These values can vary in magnitude both within and across samples, which can lead to inconsistent token lengths after formatting and impair the model’s ability to generalise.
 
-To mitigate this, we compute a per-sample scaling factor $\alpha$ that normalises the numerical range before tokenisation:
+To account for this, we compute a per-sample scaling factor $\alpha$ that normalises the numerical range before tokenisation:
 \begin{equation}
 \alpha = \frac{1}{10} \cdot \max\left(\text{percentile}_{95}(\text{prey}),\ \text{percentile}_{95}(\text{predator})\right)
 \end{equation}
@@ -145,7 +141,7 @@ Finally, all scaled values are rounded to two decimal places. This rounding step
 
 \subsection*{LLMTIME Encoding}
 
-Following the LLMTIME convention, each timestep is represented as a pair of variables (prey, predator), separated by a comma. Consecutive timesteps are separated by a semicolon. While the original LLMTIME implementation by \citet{gruver2023language} removes decimal points to reduce sequence length—especially for GPT-style models that tokenize numbers into subword units, we keep the decimal point in our implementation for several important reasons:
+Following the LLMTIME convention, each timestep is represented as a pair of variables (prey, predator), separated by a comma. Consecutive timesteps are separated by a semicolon. While the original LLMTIME implementation by \citet{gruver2023language} removes decimal points to reduce sequence length, especially for GPT-style models that tokenize numbers into subword units, we keep the decimal point in our implementation for several important reasons:
 
 \begin{itemize}
   \item Removing the decimal point would introduce additional digits and increase sequence length without benefit.
@@ -155,7 +151,7 @@ Following the LLMTIME convention, each timestep is represented as a pair of vari
 
 \subsection*{Tokenization}
 
-Once formatted, the numeric string is passed through Qwen2.5’s tokenizer using Hugging Face’s \texttt{AutoTokenizer} interface. Each digit and punctuation mark is tokenized into its own token.
+Once formatted, the numeric string is passed through Qwen2.5’s tokenizer using Hugging Face’s AutoTokenizer interface \cite{huggingface}. Each digit and punctuation mark is tokenized into its own token.
 
 \paragraph{Example 1.}
 \begin{itemize}
@@ -222,7 +218,7 @@ Predator: [2.8, 2.5, 2.2, 1.9, 1.6]
   \begin{subfigure}[t]{0.95\textwidth}
       \centering
       \includegraphics[width=\textwidth]{true_vs_decoded.png}
-      \caption{Decoded output vs.\ ground truth for the 972\textsuperscript{nd} Lotka-Volterra trajectory in the test set. This sequence was passed through the LLMTIME preprocessing pipeline and fed into the untrained Qwen2.5-Instruct model. The resulting output was decoded and rescaled using the same scale factor $\alpha$ applied during encoding.}
+      \caption{Decoded output vs.\ ground truth for the 972\textsuperscript{nd} Lotka-Volterra trajectory in the test set. This sequence was passed through the LLMTIME preprocessing pipeline, the resulting output was decoded and rescaled using the same scale factor $\alpha$ applied during encoding.}
       \label{fig:true_vs_decoded}
   \end{subfigure}
 
@@ -242,31 +238,31 @@ Predator: [2.8, 2.5, 2.2, 1.9, 1.6]
   
 \section{Baseline Evaluation}
 
-We assessed the forecasting ability of the untrained \texttt{Qwen2.5-0.5B-Instruct} model using Sample ID 972. The first 50 timesteps were provided as input in LLMTIME format, and the model was tasked with generating the remaining 50 steps.
+We assessed the forecasting ability of the untrained Qwen2.5-0.5B-Instruct model \cite{qwen2.5} using Sample ID 972. The first 50 timesteps were provided as input in LLMTIME format, and the model was tasked with generating the remaining 50 steps.
 
-Using the Hugging Face \texttt{generate()} API, the model predicted one token at a time, with each new token requiring a full forward pass.
+Using the Hugging Face 'generate()' API \cite{huggingface}, the model predicted one token at a time, with each new token requiring a full forward pass.
 
-  \subsection*{Forecasting Performance}
-  
-  We compare the predicted output (post-decoding and re-scaling) to the true population values for Sample ID 972 using standard metrics:
-  
+\subsection*{Forecasting Performance}
+
+We evaluate the model's forecasting accuracy on Sample ID 972 by comparing the decoded and rescaled predictions to the true population values using standard regression metrics. The results are summarised below:
+
+\begin{itemize}
+  \item \textbf{Prey Population}
   \begin{itemize}
-    \item \textbf{Prey:}
-      \begin{itemize}
-        \item Mean Squared Error (MSE): 0.3812
-        \item Mean Absolute Error (MAE): 0.3597
-        \item $R^2$ Score: -1.7590
-      \end{itemize}
-    \item \textbf{Predator:}
-      \begin{itemize}
-        \item Mean Squared Error (MSE): 0.1324
-        \item Mean Absolute Error (MAE): 0.1904
-        \item $R^2$ Score: -0.4884
-      \end{itemize}
+    \item Mean Squared Error (MSE): 0.3812
+    \item Mean Absolute Error (MAE): 0.3597
+    \item Coefficient of Determination ($R^2$ Score): -1.7590
   \end{itemize}
 
-  
-  Both the predator prediction, however, is unstable, with a negative $R^2$ indicating performance worse than simply predicting the mean. This reflects the model’s lack of understanding of the underlying dynamics.
+  \item \textbf{Predator Population}
+  \begin{itemize}
+    \item Mean Squared Error (MSE): 0.1324
+    \item Mean Absolute Error (MAE): 0.1904
+    \item Coefficient of Determination ($R^2$ Score): -0.4884
+  \end{itemize}
+\end{itemize}
+
+The negative $R^2$ scores for both prey and predator indicate that the model performs worse than a simple mean-based baseline.
 
   Due to the autoregressive nature of language models and the sampling-based decoding used during generation, repeated runs on the same input often give different output sequences. This non-determinism, unless explicitly controlled with fixed seeds or deterministic decoding settings, contributes to the variability in forecasting performance across trials.
   
@@ -309,7 +305,7 @@ For a batch of $n$ tokens (each of dimension $d$), the FLOPs are as follows:
 
 
 \subsection*{Multi-Head Attention (per layer)}
-Let $h$ be the number of heads and $d_h = d / h$.
+Let $h$ be the number of heads and $d_h = d / h$ which refers to the dimensionality fo each attention head.
 \begin{itemize}
   \item \textbf{Q/K/V Projections:} $3 \times n \times d \times d_h$ multiplications and $3 \times n \times (d - 1) \times d_h$ additions.
   \item \textbf{Attention Scores:} $n \times n \times d_h$ multiplications and $n \times n \times (d_h - 1)$ additions.
@@ -358,9 +354,9 @@ Let $d$ be the model embedding dimension, $d_{\text{ff}}$ the hidden (feedforwar
   \item \textbf{Linear Projection:} $n \times d \times V$ multiplications and $n \times (d - 1) \times V$ additions.
 \end{itemize}
 
-\subsection*{LoRA Projections (if enabled)}
+\subsection*{LoRA Projections}
 
-Low-Rank Adaptation (LoRA) replaces a standard linear layer $W \in \mathbb{R}^{d \times d}$ with a low-rank approximation consisting of two smaller matrices:
+LoRA replaces a standard linear layer $W \in \mathbb{R}^{d \times d}$ with a low-rank approximation consisting of two smaller matrices:
 \begin{itemize}
   \item A \textbf{down-projection} matrix $A \in \mathbb{R}^{r \times d}$ (reducing dimensionality),
   \item An \textbf{up-projection} matrix $B \in \mathbb{R}^{d \times r}$ (projecting back to the original space).
@@ -408,7 +404,7 @@ where $a_i$, $m_i$, $d_i$, $e_i$, and $s_i$ represent the counts of additions, m
 
 \section{LoRA Adaptation and Fine-Tuning Procedure}
 
-To enable parameter-efficient fine-tuning of the Qwen2.5-0.5B-Instruct model, we applied Low-Rank Adaptation (LoRA) to the query (Q) and value (V) projection layers in each transformer block. Specifically, we wrapped each of these layers with a custom \texttt{LoRALinear} module that augments the frozen base projection with a trainable low-rank update.
+Low-Rank Adaptation enablea parameter-efficient fine-tuning of the Qwen2.5-0.5B-Instruct model. It is applied to the query (Q) and value (V) projection layers in each transformer block. Specifically, we wrapped each of these layers with a custom LoRALinear module that augments the frozen base projection with a trainable low-rank update.
 
 For each modified projection layer, we introduced two trainable matrices:
 \begin{itemize}
@@ -417,6 +413,7 @@ For each modified projection layer, we introduced two trainable matrices:
 \end{itemize}
 
 The output of a LoRA-adapted linear layer becomes:
+
 \begin{equation}
 \text{output} = W x + \frac{\alpha}{r} B A x
 \end{equation}
@@ -519,7 +516,7 @@ We selected the following hyperparameters for our final model configuration:
     \item \textbf{Context Length:} 768
 \end{itemize}
 
-We trained the model for 5,000 steps using this setup, which was approximately 62\% of the total FLOP budget. Evaluation on a held-out validation set yielded a final loss of 0.2981 and a perplexity of 1.35.
+We trained the model for 5,000 steps using this setup, which was approximately 51.90\% of the total FLOP budget. Evaluation on a held-out validation set yielded a final loss of 0.2981 and a perplexity of 1.35.
 
 \begin{figure}[H]
     \centering
@@ -539,8 +536,8 @@ The validation loss is comparable to the training loss throughout, suggesting th
 
 \subsection*{Evaluation}
 
-To assess forecasting performance, we used the trained model to generate and visulualise predictions on Sample ID 972. As shown in Figure~\ref{fig:sample_prediction}, the model closely tracks the ground-truth oscillatory behaviour of both prey and predator populations across the full 100-timestep horizon.
-We also generate predictions for samples 990 - 999 in the test set to compute key evaluation metrics as shown in table \ref{tab:avg_metrics_990_999}. Although we would have wanted to do this for all samples in the testing set, we are limited by computational constraints.
+To assess forecasting performance, we used the trained model to generate and visualise predictions on Sample ID 972. As shown in Figure~\ref{fig:sample_prediction}, the model closely tracks the ground-truth oscillatory behaviour of both prey and predator populations.
+We also generate predictions for samples 990 - 999 in the test set to compute key evaluation metrics as shown in table \ref{tab:avg_metrics_990_999}.
 
 \begin{figure}[H]
     \centering
@@ -584,19 +581,15 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
   
   The final model (LoRA rank 8, LR=$10^{-4}$, context length 768) achieved imporved prediction accuracy for sample 972 representing a great improvement over the untrained model, which exhibited negative $R^2$ values and unstable forecasts.
   
+  \section{Conclusion}
+
+  This project demonstrates that large language models can be effectively repurposed for time-series forecasting under stringent compute constraints when enhanced with parameter-efficient techniques like Low-Rank Adaptation (LoRA). By integrating the LLMTIME preprocessing framework, adopting a FLOP-aware design, and performing systematic hyperparameter tuning, we successfully adapted Qwen2.5-Instruct to model predator-prey dynamics as described by the Lotka–Volterra equations. Our results indicate that increasing the LoRA rank incurs only a marginal increase in FLOP usage compared to full fine-tuning—an overhead that is more than compensated for by the significant improvements in forecasting accuracy. In particular, our final configuration—with a LoRA rank of 8, a learning rate of $10^{-4}$, and a context length of 768—achieved robust predictive performance while operating well within the $10^{17}$ FLOP budget.
   
-  \subsection*{Assumptions and Limitations}
+  Our work also revealed several important considerations. Due to the sampling-based nature of autoregressive decoding, the model produces varying outputs across runs, showing the need to account for non-determinism in evaluations. Our hyperparameter search suggests that we were operating near the edge of optimal performance; validation loss consistently improved with higher LoRA ranks, larger learning rates, and longer context lengths. Future experiments should therefore extend the search space beyond a rank of 8 and learning rates above $10^{-4}$, as well as explore the model’s architectural limits in terms of context length.
   
-  \begin{itemize}
-    \item \textbf{FLOP Estimates:} We assumed fixed per-operation FLOP costs (Table~\ref{tab:flops_primitives}) and no hardware-specific optimisations such as operation fusion, sparsity-aware kernels, or mixed-precision acceleration. As a result, our estimates are conservative.
+  Additionally, our current implementation does not incorporate dynamic inference strategies such as early exit or adaptive computation (e.g., SkipDecode~\cite{delcorro2023skipdecode}), which could further reduce computational costs by terminating the forward pass when sufficient confidence is reached. We recommend that future work explores these techniques, and perhaps more tailored loss functions—such as sequence-level objectives that better capture forecasting accuracy. Hybrid architectures that integrate transformers with classical dynamical systems or recurrent elements could also further enhance performance and interpretability. 
   
-    \item \textbf{Inference Efficiency and Caching:} We assumed full use of Key/Value (KV) caching during autoregressive generation, which significantly reduces attention computation for past tokens.
-  
-    \item \textbf{Potential for Skipped Computation:} Our model did not implement techniques such as layer skipping or early exit (e.g., SkipDecode~\cite{delcorro2023skipdecode}), which can improve inference efficiency by halting computation in deeper layers for confident predictions. Including such methods could further reduce FLOP usage without degrading performance.
-  
-    \item \textbf{Evaluation Scope:} While evaluation on Samples 990–999 showed consistently strong results, our tests were limited by FLOP budget. Generalisation to longer, more varied, or noisy trajectories remains an open question.
-  \end{itemize}
-  
+  Overall, this project presents a promising approach to leveraging large language models for structured prediction tasks under strict compute limitations by employing Low-Rank Adaptation.
     
 \begin{table}[ht]
   \centering
@@ -631,7 +624,9 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
   \textbf{3c} - Final model & 5000 & $5.17 \times 10^{16}$ & 51.90\% \\
   \textbf{3c} - Model evaluation & -- & $3.14 \times 10^{15}$ & 3.14\% \\
   \hline
-  \textbf{Remaining FLOPs} & -- & $1.48 \times 10^{16}$ & \textbf{14.82\%} \\
+  \textbf{Total FLOPs Used} & -- & $8.83 \times 10^{16}$ & \textbf{88.32\%} \\
+  \hline
+  \textbf{Remaining FLOPs} & -- & $1.17 \times 10^{16}$ & \textbf{11.68\%} \\
   \hline
   \end{tabular}%
   }
@@ -639,17 +634,7 @@ We also generate predictions for samples 990 - 999 in the test set to compute ke
   \caption{Summary of total FLOP usage across all experiments.}
   \label{tab:flop-total}
   \end{table}
-
-  \subsection*{Conclusion}
-
-  This coursework demonstrates the feasibility of adapting large language models like Qwen2.5-Instruct for time-series forecasting under strict compute constraints. By combining structured numeric preprocessing, parameter-efficient fine-tuning using LoRA, and FLOP tracking, we achieved improved predictive performance on simulated predator-prey trajectories - having used approximately 85\% of the FLOPs budget. The approach generalised well across test sequences, showing that language models can capture meaningful temporal dynamics.
   
-  To fine-tune time-series models under limited compute, we recommend using lightweight adaptation techniques as done in this work (LoRA), applying sample-specific preprocessing to reduce tokenisation overhead, and prioritising longer context windows over excessive training steps. FLOP tracking should be incorporated early in the design process to prevent inefficient experiments. Our results suggest that increasing context length is especially beneficial for autoregressive forecasting in cyclical systems like Lotka–Volterra.
-  
-  For improved future performance, pretraining on structured numeric datasets could strengthen the model’s inductive biases for time-series data. Additionally, integrating recurrence into the architecture, or exploring hybrid models that combine transformers with traditional signal processing techniques, may yield gains in dynamic modelling. Efficiency can also be improved during inference by implementing early exit strategies such as SkipDecode~\cite{delcorro2023skipdecode}. Finally, extending this approach to noisy or real-world datasets would provide a stronger test of generalisation beyond simulation-based data.
-  
-  With more available compute, a much deeper hyperparameter sweep could be conducted, including systematic tuning of LoRA rank, learning rate, and context size. Exploring loss functions that are more directly representative of the task—such as those based on trajectory similarity or sequence-level metrics—rather than relying solely on token-level cross-entropy would also be valuable.
-
 
 \bibliographystyle{unsrtnat}
 \bibliography{references}
