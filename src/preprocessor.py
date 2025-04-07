@@ -41,8 +41,8 @@ class LLMTIMEPreprocessor:
 
 if __name__ == "__main__":
     # Example 1
-    prey1 = np.array([2.9, 3.2, 3.8, 4.5, 5.1])
-    predator1 = np.array([1.1, 0.9, 0.7, 0.6, 0.5])
+    prey1 = np.array([2.957, 3.254, 3.845, 4.587, 5.198])
+    predator1 = np.array([1.124, 0.975, 0.796, 0.606, 0.546])
 
     # Example 2
     prey2 = np.array([1.5, 1.8, 2.1, 2.4, 2.7])

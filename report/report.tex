@@ -157,28 +157,28 @@ Once formatted, the numeric string is passed through Qwen2.5’s tokenizer using
 \begin{itemize}
   \item \textbf{Original Input:}
   \begin{verbatim}
-Prey:     [2.9, 3.2, 3.8, 4.5, 5.1]
-Predator: [1.1, 0.9, 0.7, 0.6, 0.5]
+Prey:     [2.957, 3.254, 3.845, 4.587, 5.198]
+Predator: [1.124, 0.975, 0.796, 0.606, 0.546]
   \end{verbatim}
 
   \vspace{-0.7cm}
 
-  \item \textbf{Scale Factor $\alpha$:} 0.498
+  \item \textbf{Scale Factor $\alpha$:} 0.508
 
 
   \item \textbf{Formatted Sequence:}
   \begin{verbatim}
-5.82,2.21;6.43,1.81;7.63,1.41;9.04,1.20;10.24,1.00
+    5.83,2.21;6.41,1.92;7.58,1.57;9.04,1.19;10.24,1.08
   \end{verbatim}
 
   \vspace{-0.7cm}
 
   \item \textbf{Tokenized Output (Qwen2.5 input IDs):}
   \begin{verbatim}
-[20, 13, 23, 17, 11, 17, 13, 17, 16, 26, 21, 13, 19, 18, 11,
-16, 13, 23, 16, 26, 22, 13, 21, 18, 11, 16, 13, 19, 16, 26,
-24, 13, 15, 19, 11, 16, 13, 17, 15, 26, 16, 15, 13, 17, 19,
-11, 16, 13, 15, 15]
+    [20, 13, 23, 18, 11, 17, 13, 17, 16, 26, 21, 13, 19, 16, 11, 
+    16, 13, 24, 17, 26, 22, 13, 20, 23, 11, 16, 13, 20, 22, 26, 
+    24, 13, 15, 19, 11, 16, 13, 16, 24, 26, 16, 15, 13, 17, 19, 
+    11, 16, 13, 15, 23]
   \end{verbatim}
 \end{itemize}
 
