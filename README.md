@@ -39,7 +39,7 @@ python -m ipykernel install --user --name=m2_coursework --display-name "M2 Cours
 - **notebooks**: Jupyter notebooks for experiments and evaluation.
 - **report**: Report and figures.
 - **lotka_volterra_data.h5**: Dataset of predator-prey sequences
-- **tests**: test suite for core functionality
+- **tests**: test suite for core functionality - use ```pytest tests/```
 - **environment.yaml**: Environment setup
 - **LICENCE**: MIT Licence
 - **pyproject.toml**: Modern package configuration
