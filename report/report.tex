@@ -49,12 +49,9 @@ This coursework requires efficient experimentation under a strict compute budget
 
 \subsection*{FLOP Accounting Principles}
 
-FLOP costs are calculated using simplified, hardware-agnostic assumptions. Table~\ref{tab:flops_primitives} provides the per-operation FLOP estimates. For example, multiplying an $m \times n$ matrix by an $n \times p$ matrix requires:
-\begin{equation}
-\text{FLOPs}_{\text{matmul}} = m \times p \times (2n - 1)
-\end{equation}
+FLOP costs are calculated using simplified, hardware-agnostic assumptions. Table~\ref{tab:flops_primitives} provides the per-operation FLOP estimates:
 
-\begin{table}[h]
+\begin{table}[H]
   \centering
 
   \begin{tabular}{lc}
@@ -106,7 +103,7 @@ The estimator accounts for every trainable and non-trainable component of the mo
 
   \item \textbf{LoRA Projections}: As proposed by \citet{hu2021lora}, LoRA introduces:
   \begin{itemize}
-    \item Low-rank down- and up-projection matrices added to the frozen base weights.
+    \item Low-rank down-projection matrices and up-projection matrices are added to the frozen base weights.
     \item FLOPs from these include multiplications, additions, and a residual connection.
   \end{itemize}
 

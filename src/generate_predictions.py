@@ -73,7 +73,7 @@ class PredictionPipeline:
             max_new_tokens=int(output_timesteps * 10)  # 10 tokens per timestep
         )
 
-        semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]  # ASCII 26 is semicolon
+        semicolons = (token_preds[0] == 26).nonzero(as_tuple=True)[0]  
         while len(semicolons) < 100:
             timesteps_needed = 100 - len(semicolons)
             token_preds = self.model.generate(
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     pipeline = PredictionPipeline(dataset, input_fraction=args.input_fraction)
 
     if args.index is not None:
-        print(f"🔎 Running prediction for trajectory index {args.index}")
+        print(f"Running prediction for trajectory index {args.index}")
         predictions, series = pipeline.predict_by_index(args.index)
     else:
         predictions, series = pipeline.predict(num_tests=5)
