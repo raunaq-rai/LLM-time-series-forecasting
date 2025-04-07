@@ -29,7 +29,7 @@
 \author{Raunaq Rai (rsr45@cam.ac.uk)\\
     Data Intensive Science, Department of Physics, University of Cambridge
 }
-\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2974}}
+\date{04 April, 2025 \\ \vspace{0.2cm} {\small Word Count: 2997}}
 
 \begin{document}
 
@@ -400,15 +400,31 @@ Let:
 \end{itemize}
 This total assumes that both the down and up projections are active and used once per token per transformer block.
 
-The total FLOPs are computed as:
+\section*{Total FLOPs}
+
+To estimate the total computational cost, we sum the FLOPs across all operations involved in a forward pass. Each arithmetic operation is assigned a FLOP cost according to Table~\ref{tab:flops_primitives}. The total FLOPs for a given sequence are computed as:
+
 \begin{equation}
 \text{Total FLOPs} = \sum_{i=1}^{n} \left( a_i + m_i + d_i + 10e_i + 10s_i \right)
 \end{equation}
-where $a_i$, $m_i$, $d_i$, $e_i$, and $s_i$ represent the counts of additions, multiplications, divisions, exponentiations, and square roots respectively.
+
+Here, $n$ is the number of tokens in the input sequence, and the variables denote the number of operations of each type at step $i$:
+\begin{itemize}
+    \item $a_i$ — number of additions/subtractions
+    \item $m_i$ — number of multiplications
+    \item $d_i$ — number of divisions/inverses
+    \item $e_i$ — number of exponentiations or logarithms (each counted as 10 FLOPs)
+    \item $s_i$ — number of square root, sine, or cosine operations (also 10 FLOPs each)
+\end{itemize}
+
+This formulation accounts for all primitive operations used in the model’s forward computation. For training FLOPs, we conservatively assume:
+\[
+\text{FLOPs}_{\text{train}} \approx 3 \times \text{FLOPs}_{\text{forward}}
+\]
 
 \section{LoRA Adaptation and Fine-Tuning Procedure}
 
-Low-Rank Adaptation enablea parameter-efficient fine-tuning of the Qwen2.5-0.5B-Instruct model. It is applied to the query (Q) and value (V) projection layers in each transformer block. Specifically, we wrapped each of these layers with a custom LoRALinear module that augments the frozen base projection with a trainable low-rank update.
+Low-Rank Adaptation enables parameter-efficient fine-tuning of the Qwen2.5-0.5B-Instruct model. It is applied to the query (Q) and value (V) projection layers in each transformer block. Specifically, we wrapped each of these layers with a custom LoRALinear module that augments the frozen base projection with a trainable low-rank update.
 
 For each modified projection layer, we introduced two trainable matrices:
 \begin{itemize}
@@ -423,7 +439,7 @@ The output of a LoRA-adapted linear layer becomes:
 \end{equation}
 where $W$ is the original frozen weight matrix and $\alpha$ is a scaling factor (typically set equal to $r$) \citep{hu2021lora}.
 
-We fine-tuned only the LoRA parameters ($A$, $B$) while keeping the base model parameters frozen. The adapted layers were implemented by replacing q\_proj and v\_proj in each transformer block.
+We fine-tuned only the LoRA parameters ($A$, $B$) while keeping the base model parameters frozen:
 
 \usetikzlibrary{arrows.meta, positioning, shapes.geometric}
 \begin{figure}[h]
