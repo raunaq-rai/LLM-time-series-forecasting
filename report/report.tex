@@ -244,7 +244,7 @@ Using the Hugging Face generate() API \cite{huggingface}, the model predicted on
 
 \subsection*{Forecasting Performance}
 
-We evaluate the model's forecasting accuracy on Sample ID 972 by comparing the decoded and rescaled predictions to the true population values using standard regression metrics. The results are summarised below:
+We evaluate the model's forecasting accuracy on Sample ID 972 by comparing the decoded and rescaled predictions to the true population values using standard regression metrics:
 
 \begin{itemize}
   \item \textbf{Prey Population}
@@ -264,17 +264,16 @@ We evaluate the model's forecasting accuracy on Sample ID 972 by comparing the d
 
 The negative $R^2$ scores for both prey and predator indicate that the model performs worse than a simple mean-based baseline.
 
-  Due to the autoregressive nature of language models and the sampling-based decoding used during generation, repeated runs on the same input often give different output sequences. This non-determinism, unless explicitly controlled with fixed seeds or deterministic decoding settings, contributes to the variability in forecasting performance across trials.
+Due to the autoregressive nature of language models and the sampling-based decoding used during generation, repeated runs on the same input often give different output sequences. This non-determinism contributes to the variability in forecasting performance across trials.
   
-  \begin{figure}[h]
-      \centering
-      \includegraphics[width=0.9\textwidth]{sample972_untrained.png}
-      \caption{Forecasting output of the untrained Qwen2.5-Instruct model on Sample ID 972. The model is prompted with the first 50 timesteps and generates the next 50.}
-      \label{fig:sample972_untrained}
-  \end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\textwidth]{sample972_untrained.png}
+    \caption{Forecasting output of the untrained Qwen2.5-Instruct model on Sample ID 972. The model is prompted with the first 50 timesteps and generates the next 50.}      \label{fig:sample972_untrained}
+\end{figure}
   
 
-  \section{FLOP Model}
+\section{FLOP Model}
 
 To calculate the total FLOPs used by the Qwen2.5-0.5B-Instruct model, we mapped every major component in the forward pass to arithmetic operations and computed their FLOP costs using Table~\ref{tab:flops_primitives}. For inference, we assume reuse of Key/Value caches, meaning dot-product attention scores are only computed for new tokens, not the full input sequence.
 
@@ -413,8 +412,8 @@ Here, $n$ is the number of tokens in the input sequence, and the variables denot
     \item $a_i$ — number of additions/subtractions
     \item $m_i$ — number of multiplications
     \item $d_i$ — number of divisions/inverses
-    \item $e_i$ — number of exponentiations or logarithms (each counted as 10 FLOPs)
-    \item $s_i$ — number of square root, sine, or cosine operations (also 10 FLOPs each)
+    \item $e_i$ — number of exponentiations or logarithms
+    \item $s_i$ — number of square root, sine, or cosine operations
 \end{itemize}
 
 This formulation accounts for all primitive operations used in the model’s forward computation. For training FLOPs, we conservatively assume:
@@ -518,7 +517,7 @@ To understand how key hyperparameters affect forecasting performance, we carried
 
 Increasing the LoRA rank introduces more trainable parameters per adapted layer, improving flexibility but increasing FLOP usage. The learning rate controls the speed of adaptation: values that are too high may destabilise training, while those too low may cause underfitting or slow convergence.
 
-Each configuration was trained for 600 optimiser steps and evaluated on a held-out validation set — cross-entropy loss was used as the primary metric to quantify forecasting accuracy in token space. Due to FLOP constraints and clear trends in performance, not all combinations were run: validation loss consistently decreased as we moved to a higher LoRA rank and to a higher learning rate. These trends allowed us to avoid redundant runs while still identifying the most promising setup.
+Each configuration was trained for 600 optimiser steps and evaluated on a held-out validation set. Due to FLOP constraints and clear trends in performance, not all combinations were run: validation loss consistently decreased as we moved to a higher LoRA rank and to a higher learning rate. These trends allowed us to avoid redundant runs while still identifying the most promising setup.
 
 \vspace{0.2cm}
 
@@ -605,7 +604,7 @@ The validation loss is comparable to the training loss throughout, suggesting th
 \subsection*{Evaluation}
 
 To assess forecasting performance, we used the trained model to generate and visualise predictions on Sample ID 972. As shown in Figure~\ref{fig:sample_prediction}, the model closely tracks the ground-truth oscillatory behaviour of both prey and predator populations.
-We also generate predictions for samples 990 - 999 in the test set to compute key evaluation metrics as shown in table \ref{tab:avg_metrics_990_999}.
+We also generate predictions for samples 990 - 999 in the test set to compute metrics as shown in table \ref{tab:avg_metrics_990_999}.
 
 \begin{figure}[H]
     \centering
