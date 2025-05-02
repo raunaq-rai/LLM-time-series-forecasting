@@ -1,6 +1,7 @@
-# Deep Learning Coursework – Raunaq Rai (rsr45)
+# The application of LLMs to time series forecasting
+### Raunaq Rai rsr45@cam.ac.uk
 
-This repository contains all code, experiments, and results for my M2 Deep Learning coursework at the University of Cambridge. The project explores how **Large Language Models (LLMs)** can be adapted to perform **scientific time-series forecasting** under strict computational constraints.
+The project explores how **Large Language Models (LLMs)** can be adapted to perform **scientific time-series forecasting** under strict computational constraints.
 
 ---
 
