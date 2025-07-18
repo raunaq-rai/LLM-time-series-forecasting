@@ -30,7 +30,7 @@ conda activate m2-coursework
 pip install -e .
 pip install -r requirements.txt
 pip install ipykernel
-python -m ipykernel install --user --name=m2_coursework --display-name "M2 Coursework"
+python -m ipykernel install --user --name=lotka_volterra --display-name "lotka_volterra"
 ```
 
 ---
